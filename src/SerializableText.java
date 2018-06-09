@@ -3,6 +3,7 @@ import java.time.Clock;
 import java.time.LocalTime;
 
 public class SerializableText implements Serializable {
+    private static final long serialVersionUID = 1L;
     String source;
     LocalTime timeStamp;
     String text;

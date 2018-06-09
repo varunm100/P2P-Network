@@ -46,7 +46,7 @@ public class Server {
     public void checkUpdate(int i) {
         try {
             Object o = objInputStreams.get(i).readObject();
-
+            handleObjData(o);
         } catch (IOException e) {
             System.out.println("Error occurred while receiving data.");
             e.printStackTrace();
@@ -132,6 +132,7 @@ public class Server {
             sendingData.visited = data.visited;
             sendingData.callbackSubject = Peer.Ipv4Local;
             for (Connection connection : Peer.connections.values()) {
+                System.out.println("CAME HERE!");
                 if (!data.visited.contains(connection.IP)) {
                     Shared.callBackCounter.get(data.timeStamp.toString()).set(0, Shared.callBackCounter.get(data.timeStamp.toString()).get(0)+1);
                     new Thread(() -> Peer.sendObject(sendingData, connection.IP)).start();

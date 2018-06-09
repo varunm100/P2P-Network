@@ -22,7 +22,7 @@ public class Main {
             } else if (command.contains("/sendto;")) {
                 peer.sendObject(new SerializableText(command.split(";")[2], peer.Ipv4Local), command.split(";")[1]);
             } else if (command.contains("/sendtoall;")) {
-                peer.sendToAllPeers(new SerializableText(command.split(";")[2], peer.Ipv4Local));
+                peer.sendToAllPeers(new SerializableText(command.split(";")[1], peer.Ipv4Local));
             } else {
                 System.out.println("'" + command + "' is not recognized as a command.");
             }
