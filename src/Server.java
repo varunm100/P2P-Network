@@ -91,6 +91,9 @@ public class Server {
     }
 
     public void handleObjData(Object o) {
-        /* TODO */
+        if (o instanceof SerializableText) {
+            SerializableText text = (SerializableText) o;
+            System.out.println(text.text + " (" + text.source + ")" + "(" + text.timeStamp.toString() + ")");
+        }
     }
 }

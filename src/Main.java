@@ -8,7 +8,7 @@ public class Main {
         scanner = new Scanner(System.in);
 
         Map<String, Integer> adjPeers = new HashMap<>();
-
+        adjPeers.put("192.168.1.187",5000);
         Peer peer = new Peer();
         peer.startPeer(adjPeers, 5000, "192.168.1.67");
 
