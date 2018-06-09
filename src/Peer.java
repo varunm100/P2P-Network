@@ -1,11 +1,13 @@
+import java.time.Clock;
+import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 
 public class Peer {
     Server server;
-    String Ipv4Local;
-    Map<String, Connection> connections;
+    static String Ipv4Local;
+    static Map<String, Connection> connections;
 
     public Peer() {
         server = new Server();
@@ -39,7 +41,18 @@ public class Peer {
             connection.disconnect();
     }
 
-    public void sendObject(Object o, String Ipv4) {
+    public static void sendObject(Object o, String Ipv4) {
         connections.get(Ipv4).sendObject(o);
+    }
+
+    public void sendToAllPeers(Object o) {
+        TraversalObj traversalObj = new TraversalObj();
+        traversalObj.data = o;
+        traversalObj.visited = new LinkedList<>();
+        traversalObj.globalSource = Peer.Ipv4Local;
+        traversalObj.type = "FORWARD";
+        traversalObj.callbackSubject = Peer.Ipv4Local;
+        traversalObj.timeStamp = LocalTime.now(Clock.systemUTC());
+        server.handleObjData(traversalObj);
     }
 }
