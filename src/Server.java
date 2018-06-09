@@ -135,7 +135,7 @@ class Server {
                 }
             }
             System.out.println("Expected Callbacks: " + Shared.callBackCounter.get(data.timeStamp.toString()).get(0));
-            //while(Shared.callBackCounter.get(data.timeStamp.toString()).get(1) < Shared.callBackCounter.get(data.timeStamp.toString()).get(0)) { }
+            while(Shared.callBackCounter.get(data.timeStamp.toString()).get(1) < Shared.callBackCounter.get(data.timeStamp.toString()).get(0)) { }
             System.out.println("GOT ALL CALLBACKS! " + Shared.callBackCounter.get(data.timeStamp.toString()).get(1));
             if (data.globalSource.equals(Peer.Ipv4Local)) { System.out.println("CONFIRMATION: DATA REACHED ALL NODES"); return; }
             data.type = "CALLBACK";
