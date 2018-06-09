@@ -1,8 +1,5 @@
-import javafx.util.Pair;
-
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.io.Serializable;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -10,21 +7,21 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 
-public class Server {
+class Server {
     static class Shared {
-        public static volatile Map<String, ArrayList<Integer>> callBackCounter = new HashMap<>();
+        static volatile Map<String, ArrayList<Integer>> callBackCounter = new HashMap<>();
     }
 
-    ServerSocket serverSocket;
-    LinkedList<Socket> socketList = new LinkedList<>();
-    LinkedList<ObjectInputStream> objInputStreams = new LinkedList<>();
-    ArrayList<Integer> zeroZeroValue = new ArrayList<>();
+    private ServerSocket serverSocket;
+    private LinkedList<Socket> socketList = new LinkedList<>();
+    private LinkedList<ObjectInputStream> objInputStreams = new LinkedList<>();
+    private ArrayList<Integer> zeroZeroValue = new ArrayList<>();
 
-    public Server() { zeroZeroValue.add(0); zeroZeroValue.add(0); }
+    Server() { zeroZeroValue.add(0); zeroZeroValue.add(0); }
 
-    public String formatIP(Socket socket) { if (socket != null) { return socket.getInetAddress().toString().replace("/", ""); } return ""; }
+    private String formatIP(Socket socket) { if (socket != null) { return socket.getInetAddress().toString().replace("/", ""); } return ""; }
 
-    public Socket findValidClient(LinkedList<String> _whiteListIP) {
+    private Socket findValidClient(LinkedList<String> _whiteListIP) {
         Socket tempSocket;
         while(true) {
             try {
@@ -43,7 +40,7 @@ public class Server {
         }
     }
 
-    public void checkUpdate(int i) {
+    private void checkUpdate(int i) {
         try {
             Object o = objInputStreams.get(i).readObject();
             handleObjData(o);
@@ -56,12 +53,12 @@ public class Server {
         }
     }
 
-    public void startServer(LinkedList<String> _adjPeerIP, int _port) {
+    void startServer(LinkedList<String> _adjPeerIP, int _port) {
         try {
             serverSocket = new ServerSocket(_port);
             serverSocket.setSoTimeout(0);
         } catch (IOException e) {
-            System.out.println("Could not create ServerSocket.");
+            System.out.println("Could not create ServerSocket");
             e.printStackTrace();
         }
 
@@ -79,7 +76,7 @@ public class Server {
         System.out.println("Setup Connections to ALL Clients Successfully!");
     }
 
-    public void closeServer() {
+    void closeServer() {
         for (int i = 0; i < socketList.size(); i++) {
             try {
                 socketList.get(i).close();
@@ -97,7 +94,7 @@ public class Server {
         }
     }
 
-    public void handleObjData(Object o) {
+    void handleObjData(Object o) {
         if (o instanceof SerializableText) {
             SerializableText text = (SerializableText) o;
             System.out.println(text.text + " (" + text.source + ")" + "(" + text.timeStamp.toString() + ")");
@@ -132,16 +129,13 @@ public class Server {
             sendingData.visited = data.visited;
             sendingData.callbackSubject = Peer.Ipv4Local;
             for (Connection connection : Peer.connections.values()) {
-                System.out.println("CAME HERE!");
                 if (!data.visited.contains(connection.IP)) {
                     Shared.callBackCounter.get(data.timeStamp.toString()).set(0, Shared.callBackCounter.get(data.timeStamp.toString()).get(0)+1);
                     new Thread(() -> Peer.sendObject(sendingData, connection.IP)).start();
                 }
             }
             System.out.println("Expected Callbacks: " + Shared.callBackCounter.get(data.timeStamp.toString()).get(0));
-            while(Shared.callBackCounter.get(data.timeStamp.toString()).get(1) < Shared.callBackCounter.get(data.timeStamp.toString()).get(0)) {
-
-            }
+            //while(Shared.callBackCounter.get(data.timeStamp.toString()).get(1) < Shared.callBackCounter.get(data.timeStamp.toString()).get(0)) { }
             System.out.println("GOT ALL CALLBACKS! " + Shared.callBackCounter.get(data.timeStamp.toString()).get(1));
             if (data.globalSource.equals(Peer.Ipv4Local)) { System.out.println("CONFIRMATION: DATA REACHED ALL NODES"); return; }
             data.type = "CALLBACK";

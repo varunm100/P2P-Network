@@ -4,22 +4,23 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 
-public class Peer {
-    Server server;
+class Peer {
+    private Server server;
     static String Ipv4Local;
     static Map<String, Connection> connections;
 
-    public Peer() {
+    Peer() {
         server = new Server();
         connections = new HashMap<>();
     }
 
-    public void startPeer(Map<String, Integer> adjPeerInfo, int serverPortId, String _Ipv4Local) {
-        Ipv4Local = _Ipv4Local;
+    void startPeer(PeerData _data) {
+        Ipv4Local = _data.Ipv4;
+        Map<String, Integer> adjPeerInfo = _data.adjPeers;
         LinkedList<String> adjIP = new LinkedList<>(adjPeerInfo.keySet());
         LinkedList<Integer> adjPort = new LinkedList<>(adjPeerInfo.values());
 
-        Thread query = new Thread(() -> server.startServer(adjIP, serverPortId));
+        Thread query = new Thread(() -> server.startServer(adjIP, _data.serverPort));
         query.start();
         System.out.println("Press [ENTER] to start client querying.");
         Main.scanner.nextLine();
@@ -35,17 +36,17 @@ public class Peer {
         System.out.println("|| PEER SUCCESSFULLY INITIALIZED ||");
     }
 
-    public void cleanUp() {
+    void cleanUp() {
         server.closeServer();
         for (Connection connection : connections.values())
             connection.disconnect();
     }
 
-    public static void sendObject(Object o, String Ipv4) {
+    static void sendObject(Object o, String Ipv4) {
         connections.get(Ipv4).sendObject(o);
     }
 
-    public void sendToAllPeers(Object o) {
+    void sendToAllPeers(Object o) {
         TraversalObj traversalObj = new TraversalObj();
         traversalObj.data = o;
         traversalObj.visited = new LinkedList<>();

@@ -2,15 +2,15 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 
-public class Connection {
-    Socket socket;
+class Connection {
+    private Socket socket;
     String IP = null;
-    int port = -1;
-    ObjectOutputStream outStream;
+    private int port = -1;
+    private ObjectOutputStream outStream;
 
-    public Connection() {}
+    Connection() {}
 
-    public void establishConnection(String _IP, int _port) {
+    void establishConnection(String _IP, int _port) {
         IP = _IP;
         port = _port;
         try {
@@ -23,7 +23,7 @@ public class Connection {
         }
     }
 
-    public void disconnect() {
+    void disconnect() {
         if (socket.isConnected()) {
             try {
                 outStream.close();
@@ -39,7 +39,7 @@ public class Connection {
         }
     }
 
-    public void sendObject(Object o) {
+    void sendObject(Object o) {
         try {
             outStream.writeObject(o);
         } catch (IOException e) {
