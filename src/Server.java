@@ -101,24 +101,22 @@ class Server {
         } else if (o instanceof  TraversalObj) {
             zeroZeroValue = new ArrayList<>();
             zeroZeroValue.add(0); //first index is the number of callbacks expected.
-            zeroZeroValue.add(0); //second index is the current number callbacks.
+            zeroZeroValue.add(0); //second index is the current number of callbacks.
             TraversalObj data = (TraversalObj) o;
-            if (data.type.contains("CALLBACK")) {
-                if (Shared.callBackCounter.containsKey(data.timeStamp.toString())) {
-                    Shared.callBackCounter.get(data.timeStamp.toString()).set(1, Shared.callBackCounter.get(data.timeStamp.toString()).get(1)+1);
-                }
-            }
             if (Shared.callBackCounter.containsKey(data.timeStamp.toString())) {
+                if (data.type.contains("CALLBACK")) {
+                    Shared.callBackCounter.get(data.timeStamp.toString()).set(1, Shared.callBackCounter.get(data.timeStamp.toString()).get(1)+1);
+                    return;
+                }
                 data.visited.add(Peer.Ipv4Local);
                 data.type = "CALLBACKINVALID";
                 Peer.sendObject(data, data.callbackSubject);
                 return;
             }
-            //
+
             SerializableText text = (SerializableText) data.data;
             System.out.println("Got Data: " + text.text + data.callbackSubject + " (" + data.globalSource + ")");
-            //Process the received data.
-            //
+
             data.visited.add(Peer.Ipv4Local);
             Shared.callBackCounter.put(data.timeStamp.toString(), zeroZeroValue);
             TraversalObj sendingData = new TraversalObj();

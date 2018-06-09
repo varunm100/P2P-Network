@@ -43,6 +43,7 @@ class Peer {
     }
 
     static void sendObject(Object o, String Ipv4) {
+        System.out.println("Sending to: " + Ipv4);
         connections.get(Ipv4).sendObject(o);
     }
 
