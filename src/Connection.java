@@ -8,8 +8,16 @@ class Connection {
     private int port = -1;
     private ObjectOutputStream outStream;
 
+    /**
+     * Connects client socket with server socket.
+     */
     Connection() {}
 
+    /**
+     * Connects client socket to a serverSocket on another peer.
+     * @param _ip Ip address of desired peer.
+     * @param _port Port number of desired peer.
+     */
     void establishConnection(String _ip, int _port) {
         ip = _ip;
         port = _port;
@@ -23,6 +31,9 @@ class Connection {
         }
     }
 
+    /**
+     * Disconnects socket.
+     */
     void disconnect() {
         if (socket.isConnected()) {
             try {
@@ -39,6 +50,10 @@ class Connection {
         }
     }
 
+    /**
+     * Sends an object over the currently binded socket.
+     * @param _o Object to be sent.
+     */
     void sendObject(Object _o) {
         try {
             outStream.writeObject(_o);

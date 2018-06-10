@@ -7,6 +7,12 @@ class SerializableText implements Serializable {
     String source;
     LocalTime timeStamp;
     String text;
+
+    /**
+     * Object used to send String data.
+     * @param _text String data.
+     * @param _source IP address of source peer.
+     */
     SerializableText(String _text, String _source) {
         text = _text;
         source = _source;

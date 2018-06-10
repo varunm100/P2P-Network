@@ -11,14 +11,27 @@ class Server {
     private LinkedList<ObjectInputStream> objInputStreams = new LinkedList<>();
     private ArrayList<Integer> zerozeroPair = new ArrayList<>();
 
+    /**
+     * Server Class.
+     */
     Server() { zerozeroPair.add(0); zerozeroPair.add(0); }
 
+    /**
+     * Formats the IP address of a socket.
+     * @param _socket Socket Object
+     * @return Returns formatted IP address.
+     */
     private String formatIP(Socket _socket) {
         if (_socket != null)
             return _socket.getInetAddress().toString().replace("/", "");
         return "";
     }
 
+    /**
+     * Finds a suitable client for the server.
+     * @param _whiteListIP The list of allowed IP addresses to connect to the server.
+     * @return Returns a suitable client.
+     */
     private Socket findValidClient(LinkedList<String> _whiteListIP) {
         Socket tempSocket;
         while(true) {
@@ -38,6 +51,10 @@ class Server {
         }
     }
 
+    /**
+     * Listens to any updates in the InputStream of a Socket.
+     * @param _inStream ObjectInputStream
+     */
     private void checkUpdate(ObjectInputStream _inStream) {
         while (Peer.Shared.running) {
             try {
@@ -53,6 +70,11 @@ class Server {
         }
     }
 
+    /**
+     * Listens and establishes a connection to all adjacent peers.
+     * @param _adjPeerIP The ip addresses of all the adjacent peers.
+     * @param _port The port number at which the server initializes.
+     */
     void startServer(LinkedList<String> _adjPeerIP, int _port) {
         try {
             serverSocket = new ServerSocket(_port);
@@ -76,6 +98,9 @@ class Server {
         System.out.println("Setup connections to ALL clients successfully!");
     }
 
+    /**
+     * Closes the server.
+     */
     void closeServer() {
         for (int i = 0; i < socketList.size(); i++) {
             try {
@@ -94,6 +119,10 @@ class Server {
         }
     }
 
+    /**
+     * Handles received data.
+     * @param _o Object received.
+     */
     void handleObjData(Object _o) {
         if (_o instanceof SerializableText) {
             SerializableText text = (SerializableText) _o;

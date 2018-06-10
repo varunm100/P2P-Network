@@ -10,5 +10,9 @@ class TraversalObj implements Serializable {
     Object data;
     LinkedList<String> visited = new LinkedList<>();
     String callbackSubject;
+
+    /**
+     * Helper class for sending data to all peers in the network recursively.
+     */
     TraversalObj() {  }
 }

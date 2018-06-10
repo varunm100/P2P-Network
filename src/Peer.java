@@ -10,16 +10,27 @@ class Peer {
     private Server server;
     static String Ipv4Local;
     static Map<String, Connection> connections;
+
+    /**
+     * Stores data that is shared between all threads and instances of the Peer class.
+     */
     static class Shared {
         static volatile Map<String, ArrayList<Integer>> callBackCounter = new HashMap<>();
         static volatile boolean running;
     }
 
+    /**
+     * Peer class
+     */
     Peer() {
         server = new Server();
         connections = new HashMap<>();
     }
 
+    /**
+     * Finds the ip address of current device.
+     * @return Ip address of current device.
+     */
     private String getLocalIpv4() {
         String output = null;
         try {
@@ -33,6 +44,11 @@ class Peer {
         return output;
     }
 
+    /**
+     * Parses the config file.
+     * @param _file Peer config file.
+     * @return Metadata to identify and start the Peer.
+     */
     private PeerData parseConfigFile(File _file) {
         Map<String, Integer> adjPeers = new HashMap<>();
         int serverPort = -1;
@@ -57,6 +73,10 @@ class Peer {
         return new PeerData(adjPeers, serverPort);
     }
 
+    /**
+     * Starts the peer.
+     * @param _configFile Peer config file.
+     */
     void startPeer(File _configFile) {
         Peer.Shared.running = true;
         PeerData peerData = parseConfigFile(_configFile);
@@ -81,6 +101,9 @@ class Peer {
         System.out.println("|| PEER SUCCESSFULLY INITIALIZED ||");
     }
 
+    /**
+     * Stops the peer.
+     */
     void stop() {
         Peer.Shared.running = false;
         server.closeServer();
@@ -88,10 +111,19 @@ class Peer {
             connection.disconnect();
     }
 
+    /**
+     * Sends an object to one of the adjacent peers.
+     * @param _o Object to be sent.
+     * @param _Ipv4 Ip address of destination peer.
+     */
     static void sendObject(Object _o, String _Ipv4) {
         connections.get(_Ipv4).sendObject(_o);
     }
 
+    /**
+     * Sends an object to all peers in the network.
+     * @param _o Object to be sent.
+     */
     void sendToAllPeers(Object _o) {
         TraversalObj traversalObj = new TraversalObj();
         traversalObj.data = _o;

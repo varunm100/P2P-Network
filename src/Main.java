@@ -4,6 +4,10 @@ import java.util.Scanner;
 public class Main {
     static Scanner scanner;
 
+    /**
+     * Handles inputted commands from user.
+     * @param _peer Peer Object
+     */
     private void handleCommandInput(Peer _peer) {
         String command;
         while(Peer.Shared.running) {
@@ -23,7 +27,6 @@ public class Main {
 
     public static void main(String args[]) {
         Main o = new Main();
-
         Peer peer = new Peer();
         peer.startPeer(new File("peer-config.config"));
         o.handleCommandInput(peer);
