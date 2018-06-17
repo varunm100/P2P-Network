@@ -1,8 +1,14 @@
+/*
+ * @author Varun on 6/17/2018
+ * @project P2P-Network
+ */
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedList;
 
 class Server {
@@ -13,27 +19,29 @@ class Server {
     /**
      * Server Class.
      */
-    Server() {  }
+    Server() {
+    }
 
     /**
      * Formats the IP address of a socket.
+     *
      * @param socket Socket Object
      * @return Returns formatted IP address.
      */
     private String formatIP(Socket socket) {
-        if (socket != null)
-            return socket.getInetAddress().toString().replace("/", "");
+        if (socket != null) return socket.getInetAddress().toString().replace("/", "");
         return "";
     }
 
     /**
      * Finds a suitable client for the server. (Only allows certain IP addresses to connect to it)
+     *
      * @param whiteListIP The list of allowed IP addresses to connect to the server.
      * @return Returns a socket connection to the selected client.
      */
     private Socket findSuitableClient(LinkedList<String> whiteListIP) {
         Socket tempSocket;
-        while(true) {
+        while (true) {
             try {
                 tempSocket = serverSocket.accept();
                 if (whiteListIP.contains(formatIP(tempSocket))) {
@@ -52,13 +60,15 @@ class Server {
 
     /**
      * Listens to any updates in the InputStream of a Socket.
+     *
      * @param inStream ObjectInputStream
      */
     private void listenToInputStream(ObjectInputStream inStream) {
         while (Peer.Shared.running) {
             try {
                 Object o = inStream.readObject();
-                new Thread(() -> handleObjData(o));
+                Peer.Shared.threads.add(new Thread(() -> handleObjData(o)));
+                Peer.Shared.threads.getLast().start();
             } catch (IOException e) {
                 System.out.println("Error occurred while receiving data.");
                 e.printStackTrace();
@@ -71,8 +81,9 @@ class Server {
 
     /**
      * Listens and establishes a connection to all whitelisted peers.
+     *
      * @param adjPeerIP The ip addresses of all the adjacent peers.
-     * @param port The port number at which the server initializes.
+     * @param port      The port number at which the server initializes.
      */
     void startServer(LinkedList<String> adjPeerIP, int port) {
         try {
@@ -87,8 +98,9 @@ class Server {
             try {
                 socketList.add(findSuitableClient(adjPeerIP));
                 objInputStreams.add(new ObjectInputStream(socketList.getLast().getInputStream()));
-                new Thread(() -> listenToInputStream(objInputStreams.getLast())).start();
-                System.out.println("Server connected to " + formatIP(socketList.getLast()) + ":" + socketList.getLast().getPort() + " (" + (adjPeerIP.indexOf(peer)+1) + "/" + adjPeerIP.size() + ")");
+                Peer.Shared.threads.add(new Thread(() -> listenToInputStream(objInputStreams.getLast())));
+                Peer.Shared.threads.getLast().start();
+                System.out.println("Server connected to " + formatIP(socketList.getLast()) + ":" + socketList.getLast().getPort() + " (" + (adjPeerIP.indexOf(peer) + 1) + "/" + adjPeerIP.size() + ")");
             } catch (IOException e) {
                 System.out.println("Error occurred while finding a suitable client.");
                 e.printStackTrace();
@@ -120,12 +132,13 @@ class Server {
 
     /**
      * Handles received data.
+     *
      * @param o Object received.
      */
     void handleObjData(Object o) {
         if (o instanceof SerializableText) {
             handleTextData((SerializableText) o);
-        } else if (o instanceof  TraversalObj) {
+        } else if (o instanceof TraversalObj) {
             recursiveTraversal((TraversalObj) o);
         } else {
             System.out.println("Received an unrecognizable object.");
@@ -134,6 +147,7 @@ class Server {
 
     /**
      * Handles received text data. (Log the message)
+     *
      * @param text The text received.
      */
     private void handleTextData(SerializableText text) {
@@ -142,6 +156,7 @@ class Server {
 
     /**
      * Implementation of a peer traversal algorithm.
+     *
      * @param traversalObj An object which contains all required data to continue recursion.
      */
     private void recursiveTraversal(TraversalObj traversalObj) {
@@ -149,7 +164,7 @@ class Server {
         handleObjData(traversalObj.data);
         traversalObj.visited.add(Peer.Ipv4Local);
         String timeStamp = traversalObj.timeStamp.toString();
-        Peer.Shared.callBackCounter.put(timeStamp, new ArrayList<>(2));
+        Peer.Shared.callBackCounter.put(timeStamp, new ArrayList<>(Collections.nCopies(2, 0)));
 
         TraversalObj sendingData = new TraversalObj();
         sendingData.equals(traversalObj);
@@ -157,13 +172,14 @@ class Server {
 
         for (Connection connection : Peer.connections.values()) {
             if (!traversalObj.visited.contains(connection.ip)) {
-                Peer.Shared.callBackCounter.get(timeStamp).set(0, Peer.Shared.callBackCounter.get(timeStamp).get(0)+1);
-                new Thread(() -> Peer.sendObject(sendingData, connection.ip)).start();
+                Peer.Shared.callBackCounter.get(timeStamp).set(0, Peer.Shared.callBackCounter.get(timeStamp).get(0) + 1);
+                Peer.Shared.threads.add(new Thread(() -> Peer.sendObject(sendingData, connection.ip)));
+                Peer.Shared.threads.getLast().start();
             }
         }
 
         System.out.println("Expected Callbacks: " + Peer.Shared.callBackCounter.get(timeStamp).get(0));
-        while(Peer.Shared.callBackCounter.get(timeStamp).get(1) < Peer.Shared.callBackCounter.get(timeStamp).get(0)) {
+        while (Peer.Shared.callBackCounter.get(timeStamp).get(1) < Peer.Shared.callBackCounter.get(timeStamp).get(0)) {
 
         }
         System.out.println("GOT ALL CALLBACKS! " + Peer.Shared.callBackCounter.get(timeStamp).get(1));
@@ -177,13 +193,14 @@ class Server {
 
     /**
      * Used to check base case for recursion.
+     *
      * @param data An object which contains all required data to continue recursion.
      * @return Returns whether the Peer should continue recursion.
      */
     private boolean checkBaseCase(TraversalObj data) {
         if (Peer.Shared.callBackCounter.containsKey(data.timeStamp.toString())) {
             if (data.type.contains("CALLBACK")) {
-                Peer.Shared.callBackCounter.get(data.timeStamp.toString()).set(1, Peer.Shared.callBackCounter.get(data.timeStamp.toString()).get(1)+1);
+                Peer.Shared.callBackCounter.get(data.timeStamp.toString()).set(1, Peer.Shared.callBackCounter.get(data.timeStamp.toString()).get(1) + 1);
                 return true;
             }
             data.visited.add(Peer.Ipv4Local);

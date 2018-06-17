@@ -1,3 +1,8 @@
+/*
+ * @author Varun on 6/17/2018
+ * @project P2P-Network
+ */
+
 import java.io.File;
 import java.util.Scanner;
 
@@ -6,11 +11,12 @@ public class Main {
 
     /**
      * Useful for debugging purposes.
+     *
      * @param peer Peer Object.
      */
     private void handleCommandInput(Peer peer) {
         String command;
-        while(Peer.Shared.running) {
+        while (Peer.Shared.running) {
             command = Main.scanner.nextLine();
             if (command.equals("/exit")) {
                 peer.stop();

@@ -1,3 +1,8 @@
+/*
+ * @author Varun on 6/17/2018
+ * @project P2P-Network
+ */
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -12,9 +17,10 @@ class Peer {
     static Map<String, Connection> connections;
 
     /**
-     * Stores data that is shared between all threads and instances of the Peer class.
+     * Stores data that's shared between all threads and instances of the Peer class.
      */
     static class Shared {
+        static volatile LinkedList<Thread> threads = new LinkedList<>();
         static volatile Map<String, ArrayList<Integer>> callBackCounter = new HashMap<>();
         static volatile boolean running;
     }
@@ -29,6 +35,7 @@ class Peer {
 
     /**
      * Finds the ip address of current device.
+     *
      * @return Ip address of current device.
      */
     private String getLocalIpv4() {
@@ -47,6 +54,7 @@ class Peer {
 
     /**
      * Parses the config file.
+     *
      * @param file Peer config file.
      * @return Metadata to identify and start the Peer.
      */
@@ -56,7 +64,7 @@ class Peer {
         try {
             Main.scanner = new Scanner(file);
             String line;
-            while(Main.scanner.hasNextLine()) {
+            while (Main.scanner.hasNextLine()) {
                 line = Main.scanner.nextLine();
                 if (line.startsWith("adjPeer:")) {
                     adjPeers.put(line.split(":")[1], Integer.valueOf(line.split(":")[2]));
@@ -68,14 +76,14 @@ class Peer {
             System.out.println("Could not find inputted config file.");
             e.printStackTrace();
         }
-        if (adjPeers.isEmpty() || serverPort == -1)
-            System.exit(0);
         Main.scanner = new Scanner(System.in);
+        if (adjPeers.isEmpty() || serverPort == -1) System.out.println("Error while parsing config file. (" + file.getPath() + ")");
         return new PeerData(adjPeers, serverPort);
     }
 
     /**
      * Starts the peer.
+     *
      * @param configFile Peer config file.
      */
     void startPeer(File configFile) {
@@ -90,7 +98,7 @@ class Peer {
         System.out.println("Press [ENTER] to start client querying. " + "(" + adjPeerInfo.size() + ")");
         Main.scanner.nextLine();
         for (int i = 0; i < adjPeerInfo.size(); i++) {
-            connections.put(adjIP.get(i),new Connection());
+            connections.put(adjIP.get(i), new Connection());
             connections.get(adjIP.get(i)).establishConnection(adjIP.get(i), adjPort.get(i));
         }
         try {
@@ -111,11 +119,27 @@ class Peer {
         server.closeServer();
         for (Connection connection : connections.values())
             connection.disconnect();
+        waitForAllThreads();
+    }
+
+    /**
+     * Waits for all threads to complete.
+     */
+    private void waitForAllThreads() {
+        for (Thread thread : Shared.threads) {
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                System.out.println("Thread could not exit.");
+                e.printStackTrace();
+            }
+        }
     }
 
     /**
      * Sends an object to one of the adjacent peers.
-     * @param o Object to be sent.
+     *
+     * @param o    Object to be sent.
      * @param Ipv4 Ip address of destination peer.
      */
     static void sendObject(Object o, String Ipv4) {
@@ -124,6 +148,7 @@ class Peer {
 
     /**
      * Sends an object to all immediate adjacent peers.
+     *
      * @param o Object to be sent.
      */
     void sendToAdjPeers(Object o) {
@@ -133,6 +158,7 @@ class Peer {
 
     /**
      * Sends an object to all peers in the network.
+     *
      * @param o Object to be sent.
      */
     void sendToAllPeers(Object o) {
