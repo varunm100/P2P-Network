@@ -22,11 +22,11 @@ class Connection {
         ip = _ip;
         port = _port;
         try {
-            socket = new Socket(ip, port);
+            socket = new Socket(_ip, _port);
             outStream = new ObjectOutputStream(socket.getOutputStream());
-            System.out.println("Connection Established with " + ip + ":" + port);
+            System.out.println("Connection Established with " + _ip + ":" + _port);
         } catch (IOException e) {
-            System.out.println("Error while trying to establish a connection with " + ip + ":" + port);
+            System.out.println("Error while trying to establish a connection with " + _ip + ":" + _port);
             e.printStackTrace();
         }
     }
@@ -51,12 +51,12 @@ class Connection {
     }
 
     /**
-     * Sends an object over the currently binded socket.
-     * @param _o Object to be sent.
+     * Sends an object via this socket.
+     * @param o Object to be sent.
      */
-    void sendObject(Object _o) {
+    void sendObject(Object o) {
         try {
-            outStream.writeObject(_o);
+            outStream.writeObject(o);
         } catch (IOException e) {
             System.out.println("Error while sending object data.");
             e.printStackTrace();

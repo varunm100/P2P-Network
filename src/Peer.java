@@ -8,7 +8,7 @@ import java.util.*;
 
 class Peer {
     private Server server;
-    static String Ipv4Local;
+    static String Ipv4Local = null;
     static Map<String, Connection> connections;
 
     /**
@@ -20,7 +20,7 @@ class Peer {
     }
 
     /**
-     * Peer class
+     * Peer class.
      */
     Peer() {
         server = new Server();
@@ -32,6 +32,7 @@ class Peer {
      * @return Ip address of current device.
      */
     private String getLocalIpv4() {
+        if (Ipv4Local != null) return Peer.Ipv4Local;
         String output = null;
         try {
             Socket socket = new Socket("192.168.1.1", 80); //could also use port 433
@@ -46,14 +47,14 @@ class Peer {
 
     /**
      * Parses the config file.
-     * @param _file Peer config file.
+     * @param file Peer config file.
      * @return Metadata to identify and start the Peer.
      */
-    private PeerData parseConfigFile(File _file) {
+    private PeerData parseConfigFile(File file) {
         Map<String, Integer> adjPeers = new HashMap<>();
         int serverPort = -1;
         try {
-            Main.scanner = new Scanner(_file);
+            Main.scanner = new Scanner(file);
             String line;
             while(Main.scanner.hasNextLine()) {
                 line = Main.scanner.nextLine();
@@ -75,11 +76,11 @@ class Peer {
 
     /**
      * Starts the peer.
-     * @param _configFile Peer config file.
+     * @param configFile Peer config file.
      */
-    void startPeer(File _configFile) {
+    void startPeer(File configFile) {
         Peer.Shared.running = true;
-        PeerData peerData = parseConfigFile(_configFile);
+        PeerData peerData = parseConfigFile(configFile);
         Ipv4Local = getLocalIpv4();
         Map<String, Integer> adjPeerInfo = peerData.adjPeers;
         LinkedList<String> adjIP = new LinkedList<>(adjPeerInfo.keySet());
@@ -95,7 +96,7 @@ class Peer {
         try {
             query.join();
         } catch (InterruptedException e) {
-            System.out.println("Client querying thread was interrupted.");
+            System.out.println("Server querying thread was interrupted.");
             e.printStackTrace();
         }
         System.out.println("|| PEER SUCCESSFULLY INITIALIZED ||");
@@ -106,6 +107,7 @@ class Peer {
      */
     void stop() {
         Peer.Shared.running = false;
+        Peer.Ipv4Local = null;
         server.closeServer();
         for (Connection connection : connections.values())
             connection.disconnect();
@@ -113,20 +115,29 @@ class Peer {
 
     /**
      * Sends an object to one of the adjacent peers.
-     * @param _o Object to be sent.
-     * @param _Ipv4 Ip address of destination peer.
+     * @param o Object to be sent.
+     * @param Ipv4 Ip address of destination peer.
      */
-    static void sendObject(Object _o, String _Ipv4) {
-        connections.get(_Ipv4).sendObject(_o);
+    static void sendObject(Object o, String Ipv4) {
+        connections.get(Ipv4).sendObject(o);
+    }
+
+    /**
+     * Sends an object to all immediate adjacent peers.
+     * @param o Object to be sent.
+     */
+    void sendToAdjPeers(Object o) {
+        for (Connection connection : connections.values())
+            connection.sendObject(o);
     }
 
     /**
      * Sends an object to all peers in the network.
-     * @param _o Object to be sent.
+     * @param o Object to be sent.
      */
-    void sendToAllPeers(Object _o) {
+    void sendToAllPeers(Object o) {
         TraversalObj traversalObj = new TraversalObj();
-        traversalObj.data = _o;
+        traversalObj.data = o;
         traversalObj.visited = new LinkedList<>();
         traversalObj.globalSource = Peer.Ipv4Local;
         traversalObj.type = "FORWARD";

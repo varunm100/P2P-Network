@@ -5,20 +5,22 @@ public class Main {
     static Scanner scanner;
 
     /**
-     * Handles inputted commands from user.
-     * @param _peer Peer Object
+     * Useful for debugging purposes.
+     * @param peer Peer Object.
      */
-    private void handleCommandInput(Peer _peer) {
+    private void handleCommandInput(Peer peer) {
         String command;
         while(Peer.Shared.running) {
             command = Main.scanner.nextLine();
             if (command.equals("/exit")) {
+                peer.stop();
                 Main.scanner.close();
-                _peer.stop();
             } else if (command.startsWith("/sendto;")) {
                 Peer.sendObject(new SerializableText(command.split(";")[2], Peer.Ipv4Local), command.split(";")[1]);
             } else if (command.startsWith("/sendtoall;")) {
-                _peer.sendToAllPeers(new SerializableText(command.split(";")[1], Peer.Ipv4Local));
+                peer.sendToAllPeers(new SerializableText(command.split(";")[1], Peer.Ipv4Local));
+            } else if (command.startsWith("/sendtoadj;")) {
+                peer.sendToAdjPeers(new SerializableText(command.split(";")[1], Peer.Ipv4Local));
             } else if (command.startsWith("/")) {
                 System.out.println("'" + command + "' is not recognized as a valid command.");
             }
