@@ -5,7 +5,7 @@ class PeerData {
     int serverPort;
 
     /**
-     * Holds all the required metadata to start a peer.
+     * Holds all the required data to start a peer.
      * @param _adjPeers List of adjacent peers to connect to. Map IP address, Port Number
      * @param _serverPort The port number at which the serverSocket will start at.
      */

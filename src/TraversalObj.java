@@ -2,6 +2,9 @@ import java.io.Serializable;
 import java.time.LocalTime;
 import java.util.LinkedList;
 
+/**
+ *
+ */
 class TraversalObj implements Serializable {
     private static final long serialVersionUID = 1L;
     LocalTime timeStamp;
@@ -16,6 +19,11 @@ class TraversalObj implements Serializable {
      */
     TraversalObj() { }
 
+
+    /**
+     * Copies contents from one obj to another obj.
+     * @param o Object to equal.
+     */
     void equals(TraversalObj o) {
         this.timeStamp = o.timeStamp;
         this.data = o.data;
