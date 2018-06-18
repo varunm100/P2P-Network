@@ -10,6 +10,10 @@ import java.net.Socket;
 import java.time.Clock;
 import java.time.LocalTime;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 class Peer {
@@ -22,7 +26,7 @@ class Peer {
      */
     static class Shared {
         static AtomicReference<Map<String, ArrayList<Integer>>> callBackCounter = new AtomicReference<>(new HashMap<>());
-        static volatile LinkedList<Thread> threads = new LinkedList<>();
+        static ExecutorService threadManager = Executors.newCachedThreadPool();
         static volatile boolean running;
     }
 
@@ -95,8 +99,7 @@ class Peer {
         Map<String, Integer> adjPeerInfo = peerData.adjPeers;
         LinkedList<String> adjIP = new LinkedList<>(adjPeerInfo.keySet());
         LinkedList<Integer> adjPort = new LinkedList<>(adjPeerInfo.values());
-        Thread query = new Thread(() -> server.startServer(adjIP, peerData.serverPort));
-        query.start();
+        Future queryThread = Shared.threadManager.submit(() -> server.startServer(adjIP, peerData.serverPort));
         System.out.println("Press [ENTER] to start client querying. " + "(" + adjPeerInfo.size() + ")");
         Main.scanner.nextLine();
         for (int i = 0; i < adjPeerInfo.size(); i++) {
@@ -104,7 +107,7 @@ class Peer {
             connections.get(adjIP.get(i)).establishConnection(adjIP.get(i), adjPort.get(i));
         }
         try {
-            query.join();
+            queryThread.wait(Long.MAX_VALUE);
         } catch (InterruptedException e) {
             System.out.println("Server querying thread was interrupted.");
             e.printStackTrace();
@@ -128,14 +131,15 @@ class Peer {
      * Waits for all threads to complete.
      */
     private void waitForAllThreads() {
-        for (Thread thread : Shared.threads) {
-            try {
-                thread.join();
-            } catch (InterruptedException e) {
-                System.out.println("Thread could not exit.");
-                e.printStackTrace();
-            }
+        Shared.threadManager.shutdown();
+        try {
+            Shared.threadManager.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+        } catch (InterruptedException e) {
+            System.out.println("Error while waiting for threads to terminate.");
+            e.printStackTrace();
+            System.exit(-1);
         }
+        System.exit(0);
     }
 
     /**
@@ -174,6 +178,12 @@ class Peer {
         server.handleObjData(traversalObj);
     }
 
+    /**
+     * Used to set a value for an atomic object.
+     *
+     * @param reference Atomic reference to object.
+     * @param newValue  New value of object.
+     */
     static <T> void setValueAtomically(AtomicReference<T> reference, T newValue) {
         T before;
         do {
@@ -181,15 +191,28 @@ class Peer {
         } while (!reference.compareAndSet(before, newValue));
     }
 
-    static void iterateCounterAtomically(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key, int amount, int index) {
+    /**
+     * Used to increase the currentNumberOfCallbacks by 1.
+     *
+     * @param reference Reference to the callback Map.
+     * @param key       Key of desired callback counter.
+     * @param index     Index of callback ArrayList. Index 1 - Max Value of Callbacks : Index 2 - Current number of callbacks
+     */
+    static void iterateCounterAtomically(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key, int index) {
         Map<String, ArrayList<Integer>> before, after = new HashMap<>();
         do {
             before = reference.get();
             after.putAll(before);
-            after.get(key).set(index, after.get(key).get(index) + amount);
+            after.get(key).set(index, after.get(key).get(index) + 1);
         } while (!reference.compareAndSet(before, after));
     }
 
+    /**
+     * Initialize atomic counter to empty Table and ArrayList filled with 2 zeros. First index for Max callbacks and the second for current number of callbacks.
+     *
+     * @param reference Reference to callback Map.
+     * @param key       Key of desired callback counter.
+     */
     static void intitializeCounterAtomically(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key) {
         Map<String, ArrayList<Integer>> before, after = new HashMap<>();
         do {

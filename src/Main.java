@@ -4,7 +4,6 @@
  */
 
 import java.io.File;
-import java.util.Arrays;
 import java.util.Scanner;
 
 public class Main {
@@ -20,7 +19,6 @@ public class Main {
         while (Peer.Shared.running) {
             command = Main.scanner.nextLine();
             if (command.equals("/exit")) {
-                System.out.println(Arrays.toString(Peer.Shared.callBackCounter.get().keySet().toArray()));
                 peer.stop();
                 Main.scanner.close();
             } else if (command.startsWith("/sendto;")) {

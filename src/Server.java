@@ -65,8 +65,7 @@ class Server {
         while (Peer.Shared.running) {
             try {
                 Object o = inStream.readObject();
-                Peer.Shared.threads.add(new Thread(() -> handleObjData(o)));
-                Peer.Shared.threads.getLast().start();
+                Peer.Shared.threadManager.submit(() -> handleObjData(o));
             } catch (IOException e) {
                 System.out.println("Error occurred while receiving data.");
                 e.printStackTrace();
@@ -96,8 +95,7 @@ class Server {
             try {
                 socketList.add(findSuitableClient(adjPeerIP));
                 objInputStreams.add(new ObjectInputStream(socketList.getLast().getInputStream()));
-                Peer.Shared.threads.add(new Thread(() -> listenToInputStream(objInputStreams.getLast())));
-                Peer.Shared.threads.getLast().start();
+                Peer.Shared.threadManager.submit(() -> listenToInputStream(objInputStreams.getLast()));
                 System.out.println("Server connected to " + formatIP(socketList.getLast()) + ":" + socketList.getLast().getPort() + " (" + (adjPeerIP.indexOf(peer) + 1) + "/" + adjPeerIP.size() + ")");
             } catch (IOException e) {
                 System.out.println("Error occurred while finding a suitable client.");
@@ -171,9 +169,8 @@ class Server {
 
         for (Connection connection : Peer.connections.values()) {
             if (!traversalObj.visited.contains(connection.ip)) {
-                Peer.iterateCounterAtomically(Peer.Shared.callBackCounter, timeStamp, 1, 0);
-                Peer.Shared.threads.add(new Thread(() -> Peer.sendObject(sendingData, connection.ip)));
-                Peer.Shared.threads.getLast().start();
+                Peer.iterateCounterAtomically(Peer.Shared.callBackCounter, timeStamp, 0);
+                Peer.Shared.threadManager.submit(() -> Peer.sendObject(sendingData, connection.ip));
             }
         }
 
@@ -199,7 +196,7 @@ class Server {
     private boolean checkBaseCase(TraversalObj data) {
         if (Peer.Shared.callBackCounter.get().containsKey(data.timeStamp.toString())) {
             if (data.type.contains("CALLBACK")) {
-                Peer.iterateCounterAtomically(Peer.Shared.callBackCounter, data.timeStamp.toString(), 1, 1);
+                Peer.iterateCounterAtomically(Peer.Shared.callBackCounter, data.timeStamp.toString(), 1);
                 return true;
             }
             data.visited.add(Peer.Ipv4Local);
