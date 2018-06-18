@@ -10,6 +10,7 @@ import java.net.Socket;
 import java.time.Clock;
 import java.time.LocalTime;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 class Peer {
     private Server server;
@@ -20,8 +21,8 @@ class Peer {
      * Stores data that's shared between all threads and instances of the Peer class.
      */
     static class Shared {
+        static AtomicReference<Map<String, ArrayList<Integer>>> callBackCounter = new AtomicReference<>(new HashMap<>());
         static volatile LinkedList<Thread> threads = new LinkedList<>();
-        static volatile Map<String, ArrayList<Integer>> callBackCounter = new HashMap<>();
         static volatile boolean running;
     }
 
@@ -77,7 +78,8 @@ class Peer {
             e.printStackTrace();
         }
         Main.scanner = new Scanner(System.in);
-        if (adjPeers.isEmpty() || serverPort == -1) System.out.println("Error while parsing config file. (" + file.getPath() + ")");
+        if (adjPeers.isEmpty() || serverPort == -1)
+            System.out.println("Error while parsing config file. (" + file.getPath() + ")");
         return new PeerData(adjPeers, serverPort);
     }
 
@@ -170,5 +172,30 @@ class Peer {
         traversalObj.callbackSubject = Peer.Ipv4Local;
         traversalObj.timeStamp = LocalTime.now(Clock.systemUTC());
         server.handleObjData(traversalObj);
+    }
+
+    static <T> void setValueAtomically(AtomicReference<T> reference, T newValue) {
+        T before;
+        do {
+            before = reference.get();
+        } while (!reference.compareAndSet(before, newValue));
+    }
+
+    static void iterateCounterAtomically(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key, int amount) {
+        Map<String, ArrayList<Integer>> before, after = new HashMap<>();
+        do {
+            before = reference.get();
+            after.putAll(before);
+            after.get(key).set(1, after.get(key).get(1) + amount);
+        } while (!reference.compareAndSet(before, after));
+    }
+
+    static void intitializeCounterAtomically(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key) {
+        Map<String, ArrayList<Integer>> before, after = new HashMap<>();
+        do {
+            before = reference.get();
+            after.putAll(before);
+            after.put(key, new ArrayList<>(Collections.nCopies(2, 0)));
+        } while (!reference.compareAndSet(before, after));
     }
 }

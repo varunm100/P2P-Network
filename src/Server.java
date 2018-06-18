@@ -7,9 +7,9 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedList;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.UnaryOperator;
 
 class Server {
     private ServerSocket serverSocket;
@@ -19,8 +19,7 @@ class Server {
     /**
      * Server Class.
      */
-    Server() {
-    }
+    Server() { }
 
     /**
      * Formats the IP address of a socket.
@@ -164,7 +163,8 @@ class Server {
         handleObjData(traversalObj.data);
         traversalObj.visited.add(Peer.Ipv4Local);
         String timeStamp = traversalObj.timeStamp.toString();
-        Peer.Shared.callBackCounter.put(timeStamp, new ArrayList<>(Collections.nCopies(2, 0)));
+
+        Peer.intitializeCounterAtomically(Peer.Shared.callBackCounter, timeStamp);
 
         TraversalObj sendingData = new TraversalObj();
         sendingData.equals(traversalObj);
@@ -172,17 +172,17 @@ class Server {
 
         for (Connection connection : Peer.connections.values()) {
             if (!traversalObj.visited.contains(connection.ip)) {
-                Peer.Shared.callBackCounter.get(timeStamp).set(0, Peer.Shared.callBackCounter.get(timeStamp).get(0) + 1);
+                Peer.iterateCounterAtomically(Peer.Shared.callBackCounter, timeStamp, 1);
                 Peer.Shared.threads.add(new Thread(() -> Peer.sendObject(sendingData, connection.ip)));
                 Peer.Shared.threads.getLast().start();
             }
         }
 
-        System.out.println("Expected Callbacks: " + Peer.Shared.callBackCounter.get(timeStamp).get(0));
-        while (Peer.Shared.callBackCounter.get(timeStamp).get(1) < Peer.Shared.callBackCounter.get(timeStamp).get(0)) {
+        System.out.println("Expected Callbacks: " + Peer.Shared.callBackCounter.get().get(timeStamp).get(0));
+        while (Peer.Shared.callBackCounter.get().get(timeStamp).get(1) < Peer.Shared.callBackCounter.get().get(timeStamp).get(0)) {
 
         }
-        System.out.println("GOT ALL CALLBACKS! " + Peer.Shared.callBackCounter.get(timeStamp).get(1));
+        System.out.println("GOT ALL CALLBACKS! " + Peer.Shared.callBackCounter.get().get(timeStamp).get(1));
         if (traversalObj.globalSource.equals(Peer.Ipv4Local)) {
             System.out.println("CONFIRMATION: DATA REACHED ALL NODES");
             return;
@@ -198,9 +198,9 @@ class Server {
      * @return Returns whether the Peer should continue recursion.
      */
     private boolean checkBaseCase(TraversalObj data) {
-        if (Peer.Shared.callBackCounter.containsKey(data.timeStamp.toString())) {
+        if (Peer.Shared.callBackCounter.get().containsKey(data.timeStamp.toString())) {
             if (data.type.contains("CALLBACK")) {
-                Peer.Shared.callBackCounter.get(data.timeStamp.toString()).set(1, Peer.Shared.callBackCounter.get(data.timeStamp.toString()).get(1) + 1);
+                Peer.iterateCounterAtomically(Peer.Shared.callBackCounter, data.timeStamp.toString(), 1);
                 return true;
             }
             data.visited.add(Peer.Ipv4Local);
