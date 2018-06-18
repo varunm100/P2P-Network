@@ -181,12 +181,12 @@ class Peer {
         } while (!reference.compareAndSet(before, newValue));
     }
 
-    static void iterateCounterAtomically(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key, int amount) {
+    static void iterateCounterAtomically(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key, int amount, int index) {
         Map<String, ArrayList<Integer>> before, after = new HashMap<>();
         do {
             before = reference.get();
             after.putAll(before);
-            after.get(key).set(1, after.get(key).get(1) + amount);
+            after.get(key).set(index, after.get(key).get(index) + amount);
         } while (!reference.compareAndSet(before, after));
     }
 

@@ -7,9 +7,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.UnaryOperator;
+import java.util.LinkedList;
 
 class Server {
     private ServerSocket serverSocket;
@@ -19,7 +17,8 @@ class Server {
     /**
      * Server Class.
      */
-    Server() { }
+    Server() {
+    }
 
     /**
      * Formats the IP address of a socket.
@@ -172,7 +171,7 @@ class Server {
 
         for (Connection connection : Peer.connections.values()) {
             if (!traversalObj.visited.contains(connection.ip)) {
-                Peer.iterateCounterAtomically(Peer.Shared.callBackCounter, timeStamp, 1);
+                Peer.iterateCounterAtomically(Peer.Shared.callBackCounter, timeStamp, 1, 0);
                 Peer.Shared.threads.add(new Thread(() -> Peer.sendObject(sendingData, connection.ip)));
                 Peer.Shared.threads.getLast().start();
             }
@@ -200,7 +199,7 @@ class Server {
     private boolean checkBaseCase(TraversalObj data) {
         if (Peer.Shared.callBackCounter.get().containsKey(data.timeStamp.toString())) {
             if (data.type.contains("CALLBACK")) {
-                Peer.iterateCounterAtomically(Peer.Shared.callBackCounter, data.timeStamp.toString(), 1);
+                Peer.iterateCounterAtomically(Peer.Shared.callBackCounter, data.timeStamp.toString(), 1, 1);
                 return true;
             }
             data.visited.add(Peer.Ipv4Local);
