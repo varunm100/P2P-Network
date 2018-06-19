@@ -31,9 +31,9 @@ class Connection {
         try {
             socket = new Socket(_ip, _port);
             outStream = new ObjectOutputStream(socket.getOutputStream());
-            System.out.println("Connection Established with " + _ip + ":" + _port);
+            System.out.println("Connection Established with " + ip + ":" + port);
         } catch (IOException e) {
-            System.out.println("Error while trying to establish a connection with " + _ip + ":" + _port);
+            System.out.println("Error while trying to establish a connection with " + ip + ":" + port);
             e.printStackTrace();
         }
     }

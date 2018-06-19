@@ -7,7 +7,9 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.Map;
 
 class Server {
     private ServerSocket serverSocket;
@@ -43,17 +45,18 @@ class Server {
             try {
                 tempSocket = serverSocket.accept();
                 if (whiteListIP.contains(formatIP(tempSocket))) {
-                    System.out.println("Accepted Client with ip " + formatIP(tempSocket));
-                    return tempSocket;
+                    System.out.println("Accepted Client " + formatIP(tempSocket) + ":" + tempSocket.getPort());
+                    break;
                 } else {
                     tempSocket.close();
-                    System.out.println("Rejected Client with ip " + formatIP(tempSocket));
+                    System.out.println("Rejected Client " + formatIP(tempSocket) + ":" + tempSocket.getPort());
                 }
             } catch (IOException e) {
                 System.out.println("Error occurred while trying to accept client connection.");
                 e.printStackTrace();
             }
         }
+        return tempSocket;
     }
 
     /**
@@ -61,7 +64,7 @@ class Server {
      *
      * @param inStream ObjectInputStream
      */
-    private void listenToInputStream(ObjectInputStream inStream) {
+    private void inputStreamListener(ObjectInputStream inStream) {
         while (Peer.Shared.running) {
             try {
                 Object o = inStream.readObject();
@@ -95,7 +98,7 @@ class Server {
             try {
                 socketList.add(findSuitableClient(adjPeerIP));
                 objInputStreams.add(new ObjectInputStream(socketList.getLast().getInputStream()));
-                Peer.Shared.threadManager.submit(() -> listenToInputStream(objInputStreams.getLast()));
+                Peer.Shared.threadManager.submit(() -> inputStreamListener(objInputStreams.getLast()));
                 System.out.println("Server connected to " + formatIP(socketList.getLast()) + ":" + socketList.getLast().getPort() + " (" + (adjPeerIP.indexOf(peer) + 1) + "/" + adjPeerIP.size() + ")");
             } catch (IOException e) {
                 System.out.println("Error occurred while finding a suitable client.");
@@ -161,7 +164,7 @@ class Server {
         traversalObj.visited.add(Peer.Ipv4Local);
         String timeStamp = traversalObj.timeStamp.toString();
 
-        Peer.intitializeCounterAtomically(Peer.Shared.callBackCounter, timeStamp);
+        Peer.initCounterAtomically(Peer.Shared.callBackCounter, timeStamp);
 
         TraversalObj sendingData = new TraversalObj();
         sendingData.equals(traversalObj);
@@ -169,22 +172,32 @@ class Server {
 
         for (Connection connection : Peer.connections.values()) {
             if (!traversalObj.visited.contains(connection.ip)) {
-                Peer.iterateCounterAtomically(Peer.Shared.callBackCounter, timeStamp, 0);
+                Peer.updateCallbackCounter(Peer.Shared.callBackCounter, timeStamp, 0);
                 Peer.Shared.threadManager.submit(() -> Peer.sendObject(sendingData, connection.ip));
             }
         }
 
-        System.out.println("Expected Callbacks: " + Peer.Shared.callBackCounter.get().get(timeStamp).get(0));
-        while (Peer.Shared.callBackCounter.get().get(timeStamp).get(1) < Peer.Shared.callBackCounter.get().get(timeStamp).get(0)) {
-
-        }
-        System.out.println("GOT ALL CALLBACKS! " + Peer.Shared.callBackCounter.get().get(timeStamp).get(1));
+        waitForCallbacks(timeStamp);
         if (traversalObj.globalSource.equals(Peer.Ipv4Local)) {
             System.out.println("CONFIRMATION: DATA REACHED ALL NODES");
             return;
         }
         traversalObj.type = "CALLBACK";
         Peer.sendObject(traversalObj, traversalObj.callbackSubject);
+    }
+
+    /**
+     * Waits to receive all callbacks from adjacent peers.
+     *
+     * @param timeStamp The time at which the parent node started search. (Used to keep track of which messages was already received)
+     */
+    private void waitForCallbacks(String timeStamp) {
+        System.out.println("Expected Callbacks: " + Peer.Shared.callBackCounter.get().get(timeStamp).get(0));
+        Map<String, ArrayList<Integer>> tempCount;
+        do {
+            tempCount = Peer.Shared.callBackCounter.get();
+        } while (tempCount.get(timeStamp).get(1) < tempCount.get(timeStamp).get(0));
+        System.out.println("GOT ALL CALLBACKS! " + Peer.Shared.callBackCounter.get().get(timeStamp).get(1));
     }
 
     /**
@@ -195,8 +208,8 @@ class Server {
      */
     private boolean checkBaseCase(TraversalObj data) {
         if (Peer.Shared.callBackCounter.get().containsKey(data.timeStamp.toString())) {
-            if (data.type.contains("CALLBACK")) {
-                Peer.iterateCounterAtomically(Peer.Shared.callBackCounter, data.timeStamp.toString(), 1);
+            if (data.type.startsWith("CALLBACK")) {
+                Peer.updateCallbackCounter(Peer.Shared.callBackCounter, data.timeStamp.toString(), 1);
                 return true;
             }
             data.visited.add(Peer.Ipv4Local);

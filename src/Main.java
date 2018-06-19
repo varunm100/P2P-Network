@@ -10,7 +10,7 @@ public class Main {
     static Scanner scanner;
 
     /**
-     * Useful for debugging purposes.
+     * Used for debugging purposes.
      *
      * @param peer Peer Object.
      */

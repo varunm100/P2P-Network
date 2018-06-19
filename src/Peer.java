@@ -179,26 +179,13 @@ class Peer {
     }
 
     /**
-     * Used to set a value for an atomic object.
-     *
-     * @param reference Atomic reference to object.
-     * @param newValue  New value of object.
-     */
-    static <T> void setValueAtomically(AtomicReference<T> reference, T newValue) {
-        T before;
-        do {
-            before = reference.get();
-        } while (!reference.compareAndSet(before, newValue));
-    }
-
-    /**
      * Used to increase the currentNumberOfCallbacks by 1.
      *
      * @param reference Reference to the callback Map.
      * @param key       Key of desired callback counter.
      * @param index     Index of callback ArrayList. Index 1 - Max Value of Callbacks : Index 2 - Current number of callbacks
      */
-    static void iterateCounterAtomically(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key, int index) {
+    static void updateCallbackCounter(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key, int index) {
         Map<String, ArrayList<Integer>> before, after = new HashMap<>();
         do {
             before = reference.get();
@@ -213,7 +200,7 @@ class Peer {
      * @param reference Reference to callback Map.
      * @param key       Key of desired callback counter.
      */
-    static void intitializeCounterAtomically(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key) {
+    static void initCounterAtomically(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key) {
         Map<String, ArrayList<Integer>> before, after = new HashMap<>();
         do {
             before = reference.get();
