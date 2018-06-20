@@ -10,16 +10,13 @@ import java.net.Socket;
 import java.time.Clock;
 import java.time.LocalTime;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
-class Peer {
+class Peer extends Server {
     private Server server;
-    static String Ipv4Local = null;
-    static Map<String, Connection> connections;
+    String Ipv4Local = null;
+    private Map<String, Connection> connections;
 
     /**
      * Stores data that's shared between all threads and instances of the Peer class.
@@ -44,7 +41,7 @@ class Peer {
      * @return Ip address of current device.
      */
     private String getLocalIpv4() {
-        if (Ipv4Local != null) return Peer.Ipv4Local;
+        if (Ipv4Local != null) return Ipv4Local;
         String output = null;
         try {
             Socket socket = new Socket("192.168.1.1", 80); //could also use port 433
@@ -78,7 +75,7 @@ class Peer {
                 }
             }
         } catch (FileNotFoundException e) {
-            System.out.println("Could not find inputted config file.");
+            System.out.println("Could not find a valid config file.");
             e.printStackTrace();
         }
         Main.scanner = new Scanner(System.in);
@@ -94,8 +91,9 @@ class Peer {
      */
     void startPeer(File configFile) {
         Peer.Shared.running = true;
-        PeerData peerData = parseConfigFile(configFile);
         Ipv4Local = getLocalIpv4();
+
+        PeerData peerData = parseConfigFile(configFile);
         Map<String, Integer> adjPeerInfo = peerData.adjPeers;
         LinkedList<String> adjIP = new LinkedList<>(adjPeerInfo.keySet());
         LinkedList<Integer> adjPort = new LinkedList<>(adjPeerInfo.values());
@@ -107,9 +105,12 @@ class Peer {
             connections.get(adjIP.get(i)).establishConnection(adjIP.get(i), adjPort.get(i));
         }
         try {
-            queryThread.wait(Long.MAX_VALUE);
+            queryThread.get();
         } catch (InterruptedException e) {
             System.out.println("Server querying thread was interrupted.");
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            System.out.println("Server failed to execute.");
             e.printStackTrace();
         }
         System.out.println("|| PEER SUCCESSFULLY INITIALIZED ||");
@@ -120,11 +121,10 @@ class Peer {
      */
     void stop() {
         Peer.Shared.running = false;
-        Peer.Ipv4Local = null;
-        server.closeServer();
-        for (Connection connection : connections.values())
-            connection.disconnect();
+        Ipv4Local = null;
         waitForAllThreads();
+        server.closeServer();
+        connections.values().forEach(Connection::disconnect);
     }
 
     /**
@@ -143,12 +143,28 @@ class Peer {
     }
 
     /**
+     * Handles received data.
+     *
+     * @param o Object received.
+     */
+    @Override
+    public void handleObjData(Object o) {
+        if (o instanceof SerializableText) {
+            handleTextData((SerializableText) o);
+        } else if (o instanceof TraversalObj) {
+            recursiveTraversal((TraversalObj) o);
+        } else {
+            System.out.println("Received an unrecognizable object.");
+        }
+    }
+
+    /**
      * Sends an object to one of the adjacent peers.
      *
      * @param o    Object to be sent.
      * @param Ipv4 Ip address of destination peer.
      */
-    static void sendObject(Object o, String Ipv4) {
+    void sendObject(Object o, String Ipv4) {
         connections.get(Ipv4).sendObject(o);
     }
 
@@ -158,8 +174,7 @@ class Peer {
      * @param o Object to be sent.
      */
     void sendToAdjPeers(Object o) {
-        for (Connection connection : connections.values())
-            connection.sendObject(o);
+        connections.values().forEach(connection -> connection.sendObject(o));
     }
 
     /**
@@ -171,11 +186,11 @@ class Peer {
         TraversalObj traversalObj = new TraversalObj();
         traversalObj.data = o;
         traversalObj.visited = new LinkedList<>();
-        traversalObj.globalSource = Peer.Ipv4Local;
+        traversalObj.globalSource = Ipv4Local;
         traversalObj.type = "FORWARD";
-        traversalObj.callbackSubject = Peer.Ipv4Local;
+        traversalObj.callbackSubject = Ipv4Local;
         traversalObj.timeStamp = LocalTime.now(Clock.systemUTC());
-        server.handleObjData(traversalObj);
+        handleObjData(traversalObj);
     }
 
     /**
@@ -185,7 +200,7 @@ class Peer {
      * @param key       Key of desired callback counter.
      * @param index     Index of callback ArrayList. Index 1 - Max Value of Callbacks : Index 2 - Current number of callbacks
      */
-    static void updateCallbackCounter(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key, int index) {
+    private void updateCallbackCounter(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key, int index) {
         Map<String, ArrayList<Integer>> before, after = new HashMap<>();
         do {
             before = reference.get();
@@ -200,12 +215,88 @@ class Peer {
      * @param reference Reference to callback Map.
      * @param key       Key of desired callback counter.
      */
-    static void initCounterAtomically(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key) {
+    private void initCounterAtomically(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key) {
         Map<String, ArrayList<Integer>> before, after = new HashMap<>();
         do {
             before = reference.get();
             after.putAll(before);
             after.put(key, new ArrayList<>(Collections.nCopies(2, 0)));
         } while (!reference.compareAndSet(before, after));
+    }
+
+    /**
+     * Implementation of a peer traversal algorithm.
+     *
+     * @param traversalObj An object which contains all required data to continue recursion.
+     */
+    private void recursiveTraversal(TraversalObj traversalObj) {
+        if (checkBaseCase(traversalObj)) return;
+        handleObjData(traversalObj.data);
+        traversalObj.visited.add(Ipv4Local);
+        String timeStamp = traversalObj.timeStamp.toString();
+
+        initCounterAtomically(Peer.Shared.callBackCounter, timeStamp);
+
+        TraversalObj sendingData = new TraversalObj();
+        sendingData.equals(traversalObj);
+        sendingData.callbackSubject = Ipv4Local;
+
+        for (Connection connection : connections.values()) {
+            if (!traversalObj.visited.contains(connection.ip)) {
+                updateCallbackCounter(Peer.Shared.callBackCounter, timeStamp, 0);
+                Peer.Shared.threadManager.submit(() -> sendObject(sendingData, connection.ip));
+            }
+        }
+
+        waitForCallbacks(timeStamp);
+        if (traversalObj.globalSource.equals(Ipv4Local)) {
+            System.out.println("CONFIRMATION: DATA REACHED ALL NODES");
+            return;
+        }
+        traversalObj.type = "CALLBACK";
+        sendObject(traversalObj, traversalObj.callbackSubject);
+    }
+
+    /**
+     * Waits to receive all callbacks from adjacent peers.
+     *
+     * @param timeStamp The time at which the parent node started search. (Used to keep track of which messages was already received)
+     */
+    private void waitForCallbacks(String timeStamp) {
+        System.out.println("Expected Callbacks: " + Peer.Shared.callBackCounter.get().get(timeStamp).get(0));
+        Map<String, ArrayList<Integer>> tempCount;
+        do {
+            tempCount = Peer.Shared.callBackCounter.get();
+        } while (tempCount.get(timeStamp).get(1) < tempCount.get(timeStamp).get(0));
+        System.out.println("GOT ALL CALLBACKS! " + Peer.Shared.callBackCounter.get().get(timeStamp).get(1));
+    }
+
+    /**
+     * Used to check base case for recursion.
+     *
+     * @param data An object which contains all required data to continue recursion.
+     * @return Returns whether the Peer should continue recursion.
+     */
+    private boolean checkBaseCase(TraversalObj data) {
+        if (Peer.Shared.callBackCounter.get().containsKey(data.timeStamp.toString())) {
+            if (data.type.startsWith("CALLBACK")) {
+                updateCallbackCounter(Peer.Shared.callBackCounter, data.timeStamp.toString(), 1);
+                return true;
+            }
+            data.visited.add(Ipv4Local);
+            data.type = "CALLBACKINVALID";
+            sendObject(data, data.callbackSubject);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Handles received text data. (Log the message)
+     *
+     * @param text The text received.
+     */
+    private void handleTextData(SerializableText text) {
+        System.out.println(text.text + " (" + text.source + ")" + "(" + text.timeStamp.toString() + ")");
     }
 }

@@ -22,11 +22,11 @@ public class Main {
                 peer.stop();
                 Main.scanner.close();
             } else if (command.startsWith("/sendto;")) {
-                Peer.sendObject(new SerializableText(command.split(";")[2], Peer.Ipv4Local), command.split(";")[1]);
+                peer.sendObject(new SerializableText(command.split(";")[2], peer.Ipv4Local), command.split(";")[1]);
             } else if (command.startsWith("/sendtoall;")) {
-                peer.sendToAllPeers(new SerializableText(command.split(";")[1], Peer.Ipv4Local));
+                peer.sendToAllPeers(new SerializableText(command.split(";")[1], peer.Ipv4Local));
             } else if (command.startsWith("/sendtoadj;")) {
-                peer.sendToAdjPeers(new SerializableText(command.split(";")[1], Peer.Ipv4Local));
+                peer.sendToAdjPeers(new SerializableText(command.split(";")[1], peer.Ipv4Local));
             } else if (command.startsWith("/")) {
                 System.out.println("'" + command + "' is not recognized as a valid command.");
             }
@@ -35,6 +35,7 @@ public class Main {
 
     public static void main(String args[]) {
         Main o = new Main();
+        Main.scanner = new Scanner(System.in);
         Peer peer = new Peer();
         peer.startPeer(new File("peer-config.config"));
         o.handleCommandInput(peer);
