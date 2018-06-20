@@ -12,8 +12,9 @@ import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
-class Peer extends Server {
+class Peer {
     private Server server;
     String Ipv4Local = null;
     private Map<String, Connection> connections;
@@ -91,13 +92,14 @@ class Peer extends Server {
      */
     void startPeer(File configFile) {
         Peer.Shared.running = true;
+        Consumer<Object> handleSocketInput = this::handleObjData;
         Ipv4Local = getLocalIpv4();
 
         PeerData peerData = parseConfigFile(configFile);
         Map<String, Integer> adjPeerInfo = peerData.adjPeers;
         LinkedList<String> adjIP = new LinkedList<>(adjPeerInfo.keySet());
         LinkedList<Integer> adjPort = new LinkedList<>(adjPeerInfo.values());
-        Future queryThread = Shared.threadManager.submit(() -> server.startServer(adjIP, peerData.serverPort));
+        Future queryThread = Shared.threadManager.submit(() -> server.startServer(adjIP, peerData.serverPort, handleSocketInput));
         System.out.println("Press [ENTER] to start client querying. " + "(" + adjPeerInfo.size() + ")");
         Main.scanner.nextLine();
         for (int i = 0; i < adjPeerInfo.size(); i++) {
@@ -140,22 +142,6 @@ class Peer extends Server {
             System.exit(-1);
         }
         System.exit(0);
-    }
-
-    /**
-     * Handles received data.
-     *
-     * @param o Object received.
-     */
-    @Override
-    public void handleObjData(Object o) {
-        if (o instanceof SerializableText) {
-            handleTextData((SerializableText) o);
-        } else if (o instanceof TraversalObj) {
-            recursiveTraversal((TraversalObj) o);
-        } else {
-            System.out.println("Received an unrecognizable object.");
-        }
     }
 
     /**
@@ -222,6 +208,21 @@ class Peer extends Server {
             after.putAll(before);
             after.put(key, new ArrayList<>(Collections.nCopies(2, 0)));
         } while (!reference.compareAndSet(before, after));
+    }
+
+    /**
+     * Handles received data.
+     *
+     * @param o Object received.
+     */
+    private void handleObjData(Object o) {
+        if (o instanceof SerializableText) {
+            handleTextData((SerializableText) o);
+        } else if (o instanceof TraversalObj) {
+            recursiveTraversal((TraversalObj) o);
+        } else {
+            System.out.println("Received an unrecognizable object.");
+        }
     }
 
     /**

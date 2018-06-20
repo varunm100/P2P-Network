@@ -8,11 +8,13 @@ import java.io.ObjectInputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.LinkedList;
+import java.util.function.Consumer;
 
 class Server {
     private ServerSocket serverSocket;
     private LinkedList<Socket> socketList = new LinkedList<>();
     private LinkedList<ObjectInputStream> objInputStreams = new LinkedList<>();
+    private Consumer<Object> handleDataReceived = null;
 
     /**
      * Server Class.
@@ -66,7 +68,7 @@ class Server {
         while (Peer.Shared.running) {
             try {
                 Object o = inStream.readObject();
-                Peer.Shared.threadManager.submit(() -> handleObjData(o));
+                Peer.Shared.threadManager.submit(() -> handleDataReceived.accept(o));
             } catch (IOException e) {
                 System.out.println("Error occurred while receiving data.");
                 e.printStackTrace();
@@ -83,7 +85,8 @@ class Server {
      * @param adjPeerIP The ip addresses of all the adjacent peers.
      * @param port      The port number at which the server initializes.
      */
-    void startServer(LinkedList<String> adjPeerIP, int port) {
+    void startServer(LinkedList<String> adjPeerIP, int port, Consumer<Object> handleSocketInputStream) {
+        handleDataReceived = handleSocketInputStream;
         try {
             serverSocket = new ServerSocket(port);
             serverSocket.setSoTimeout(0);
@@ -125,13 +128,5 @@ class Server {
             System.out.println("Error while closing server socket.");
             e.printStackTrace();
         }
-    }
-
-    /**
-     * Implemented in the Peer class.
-     *
-     * @param o Object received.
-     */
-    public void handleObjData(Object o) {
     }
 }
