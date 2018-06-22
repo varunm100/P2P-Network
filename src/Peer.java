@@ -16,7 +16,7 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 
 class Peer {
-    private Server server;
+    private Server server = new Server();
     String Ipv4Local = null;
     private Map<String, Connection> connections = new HashMap<>();
 
@@ -27,13 +27,13 @@ class Peer {
         static AtomicReference<Map<String, ArrayList<Integer>>> callBackCounter = new AtomicReference<>(new HashMap<>());
         static ExecutorService threadManager = Executors.newCachedThreadPool();
         static volatile boolean running;
+        static volatile Map<String, Integer> numTraversalMessage = new HashMap<>();
     }
 
     /**
      * Peer class.
      */
     Peer() {
-        server = new Server();
     }
 
     /**
@@ -224,9 +224,26 @@ class Peer {
             handleTextData((SerializableText) o);
         } else if (o instanceof TraversalObj) {
             recursiveTraversal((TraversalObj) o);
+        } else if (o instanceof PollingMessage) {
+            handlePollingData((PollingMessage) o);
         } else {
             System.out.println("Received an unrecognizable object.");
         }
+    }
+
+    private void handlePollingData(PollingMessage pollingObj) {
+        if (pollingObj.pollResults.containsKey(Ipv4Local)) {
+            System.out.println("||ERROR OCCURRED|| FOUND KEY TWICE IN POLLING MESSAGE");
+            return;
+        }
+        pollingObj.pollResults.put(Ipv4Local, (new Random()).nextBoolean());
+        System.out.println("|| POLLING MAP ||");
+        pollingObj.pollResults.forEach((key, value) -> System.out.println(key + " : " + value));
+        System.out.println("-----------------");
+    }
+
+    void startPollingMessage() {
+        handleObjData(new PollingMessage());
     }
 
     /**
@@ -246,20 +263,21 @@ class Peer {
         sendingData.equals(traversalObj);
         sendingData.callbackSubject = Ipv4Local;
 
-        connections.values().stream()
-                            .filter(connection -> !traversalObj.visited.contains(connection.ip))
-                            .forEach(connection -> {
-                                updateCallbackCounter(Shared.callBackCounter, timeStamp, 0);
-                                Shared.threadManager.submit(() -> sendObject(sendingData, connection.ip));
-                            });
+        connections.values().stream().filter(connection -> !traversalObj.visited.contains(connection.ip)).forEach(connection -> {
+            updateCallbackCounter(Shared.callBackCounter, timeStamp, 0);
+            Shared.threadManager.submit(() -> sendObject(sendingData, connection.ip));
+            Shared.numTraversalMessage.put(timeStamp, Shared.numTraversalMessage.get(timeStamp) + 1);
+        });
 
         waitForCallbacks(timeStamp);
         if (traversalObj.globalSource.equals(Ipv4Local)) {
             System.out.println("CONFIRMATION: DATA REACHED ALL NODES");
+            System.out.println("NUMBER OF MESSAGES SENT: " + Shared.numTraversalMessage.get(timeStamp));
             return;
         }
         traversalObj.type = "CALLBACK";
         sendObject(traversalObj, traversalObj.callbackSubject);
+        Shared.numTraversalMessage.put(timeStamp, Shared.numTraversalMessage.get(timeStamp) + 1);
     }
 
     /**
@@ -291,6 +309,7 @@ class Peer {
             data.visited.add(Ipv4Local);
             data.type = "CALLBACKINVALID";
             sendObject(data, data.callbackSubject);
+            Shared.numTraversalMessage.put(data.timeStamp.toString(), Shared.numTraversalMessage.get(data.timeStamp.toString()) + 1);
             return true;
         }
         return false;

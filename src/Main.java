@@ -28,6 +28,8 @@ public class Main {
                 peer.sendToAllPeers(new SerializableText(command.split(";")[1], peer.Ipv4Local));
             } else if (command.startsWith("/sendtoadj;")) {
                 peer.sendToAdjPeers(new SerializableText(command.split(";")[1], peer.Ipv4Local));
+            } else if (command.startsWith("/startpolling")) {
+                peer.startPollingMessage();
             } else if (command.startsWith("/")) {
                 System.out.println("'" + command + "' is not recognized as a valid command.");
             }
@@ -42,5 +44,9 @@ public class Main {
         peer.startPeer(new File("peer-config.config"));
 
         o.handleCommandInput(peer);
+
+        /* TODO Add polling system */
+        /* TODO Get list of active peers. */
+        /* TODO Pick random peer in the network. */
     }
 }
