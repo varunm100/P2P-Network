@@ -13,11 +13,12 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
 class Peer {
     private Server server;
     String Ipv4Local = null;
-    private Map<String, Connection> connections;
+    private Map<String, Connection> connections = new HashMap<>();
 
     /**
      * Stores data that's shared between all threads and instances of the Peer class.
@@ -33,7 +34,6 @@ class Peer {
      */
     Peer() {
         server = new Server();
-        connections = new HashMap<>();
     }
 
     /**
@@ -96,16 +96,18 @@ class Peer {
         Ipv4Local = getLocalIpv4();
 
         PeerData peerData = parseConfigFile(configFile);
-        Map<String, Integer> adjPeerInfo = peerData.adjPeers;
+        Map<String, Integer> adjPeerInfo = new HashMap<>(peerData.adjPeers);
         LinkedList<String> adjIP = new LinkedList<>(adjPeerInfo.keySet());
         LinkedList<Integer> adjPort = new LinkedList<>(adjPeerInfo.values());
         Future queryThread = Shared.threadManager.submit(() -> server.startServer(adjIP, peerData.serverPort, handleSocketInput));
+
         System.out.println("Press [ENTER] to start client querying. " + "(" + adjPeerInfo.size() + ")");
         Main.scanner.nextLine();
-        for (int i = 0; i < adjPeerInfo.size(); i++) {
+
+        IntStream.range(0, adjPeerInfo.size()).forEach(i -> {
             connections.put(adjIP.get(i), new Connection());
             connections.get(adjIP.get(i)).establishConnection(adjIP.get(i), adjPort.get(i));
-        }
+        });
         try {
             queryThread.get();
         } catch (InterruptedException e) {
@@ -123,10 +125,12 @@ class Peer {
      */
     void stop() {
         Peer.Shared.running = false;
-        Ipv4Local = null;
         waitForAllThreads();
         server.closeServer();
         connections.values().forEach(Connection::disconnect);
+
+        this.connections.clear();
+        this.server = null;
     }
 
     /**
@@ -242,12 +246,12 @@ class Peer {
         sendingData.equals(traversalObj);
         sendingData.callbackSubject = Ipv4Local;
 
-        for (Connection connection : connections.values()) {
-            if (!traversalObj.visited.contains(connection.ip)) {
-                updateCallbackCounter(Peer.Shared.callBackCounter, timeStamp, 0);
-                Peer.Shared.threadManager.submit(() -> sendObject(sendingData, connection.ip));
-            }
-        }
+        connections.values().stream()
+                            .filter(connection -> !traversalObj.visited.contains(connection.ip))
+                            .forEach(connection -> {
+                                updateCallbackCounter(Shared.callBackCounter, timeStamp, 0);
+                                Shared.threadManager.submit(() -> sendObject(sendingData, connection.ip));
+                            });
 
         waitForCallbacks(timeStamp);
         if (traversalObj.globalSource.equals(Ipv4Local)) {
@@ -298,6 +302,6 @@ class Peer {
      * @param text The text received.
      */
     private void handleTextData(SerializableText text) {
-        System.out.println(text.text + " (" + text.source + ")" + "(" + text.timeStamp.toString() + ")");
+        System.out.println(text.text + " (" + text.timeStamp.toString() + ")" + "(" + text.source + ")");
     }
 }

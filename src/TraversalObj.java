@@ -10,12 +10,12 @@ import java.util.LinkedList;
 class TraversalObj implements Serializable {
     private static final long serialVersionUID = -4942040386018202272L;
 
-    LocalTime timeStamp;
-    String type;
-    String globalSource;
-    Object data;
     LinkedList<String> visited = new LinkedList<>();
+    String globalSource;
     String callbackSubject;
+    String type;
+    LocalTime timeStamp;
+    Object data;
 
     /**
      * Helper class for sending data to all peers in the network recursively.

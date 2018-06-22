@@ -21,6 +21,7 @@ public class Main {
             if (command.equals("/exit")) {
                 peer.stop();
                 Main.scanner.close();
+                break;
             } else if (command.startsWith("/sendto;")) {
                 peer.sendObject(new SerializableText(command.split(";")[2], peer.Ipv4Local), command.split(";")[1]);
             } else if (command.startsWith("/sendtoall;")) {
@@ -36,8 +37,10 @@ public class Main {
     public static void main(String args[]) {
         Main o = new Main();
         Main.scanner = new Scanner(System.in);
+
         Peer peer = new Peer();
         peer.startPeer(new File("peer-config.config"));
+
         o.handleCommandInput(peer);
     }
 }

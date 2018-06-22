@@ -9,6 +9,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.LinkedList;
 import java.util.function.Consumer;
+import java.util.stream.IntStream;
 
 class Server {
     private ServerSocket serverSocket;
@@ -29,8 +30,7 @@ class Server {
      * @return Returns formatted IP address.
      */
     private String formatIP(Socket socket) {
-        if (socket != null) return socket.getInetAddress().toString().replace("/", "");
-        return "";
+        return socket != null ? socket.getInetAddress().toString().replace("/", "") : "";
     }
 
     /**
@@ -40,8 +40,8 @@ class Server {
      * @return Returns a socket connection to the selected client.
      */
     private Socket findSuitableClient(LinkedList<String> whiteListIP) {
-        Socket tempSocket;
-        while (true) {
+        Socket tempSocket = null;
+        while (Peer.Shared.running) {
             try {
                 tempSocket = serverSocket.accept();
                 if (whiteListIP.contains(formatIP(tempSocket))) {
@@ -95,7 +95,7 @@ class Server {
             e.printStackTrace();
         }
 
-        for (String peer : adjPeerIP) {
+        adjPeerIP.forEach(peer -> {
             try {
                 socketList.add(findSuitableClient(adjPeerIP));
                 objInputStreams.add(new ObjectInputStream(socketList.getLast().getInputStream()));
@@ -105,7 +105,7 @@ class Server {
                 System.out.println("Error occurred while finding a suitable client.");
                 e.printStackTrace();
             }
-        }
+        });
         System.out.println("Setup connections to ALL clients successfully!");
     }
 
@@ -113,7 +113,8 @@ class Server {
      * Safely ends the server.
      */
     void closeServer() {
-        for (int i = 0; i < socketList.size(); i++) {
+
+        IntStream.range(0, socketList.size()).forEach(i -> {
             try {
                 socketList.get(i).close();
                 objInputStreams.get(i).close();
@@ -121,7 +122,7 @@ class Server {
                 System.out.println("Error while closing a socket.");
                 e.printStackTrace();
             }
-        }
+        });
         try {
             serverSocket.close();
         } catch (IOException e) {
