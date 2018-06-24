@@ -11,7 +11,5 @@ public class PollingMessage implements Serializable {
 
     Map<String, Boolean> pollResults = new HashMap<>();
 
-    public PollingMessage() {
-
-    }
+    public PollingMessage() { }
 }

@@ -29,8 +29,8 @@ class TraversalObj implements Serializable {
      * @param o Object to equal.
      */
     void equals(TraversalObj o) {
-        this.timeStamp.equals(o.timeStamp);
-        this.data.equals(o);
+        this.timeStamp = o.timeStamp;
+        this.data = o.data;
         this.globalSource = o.globalSource;
         this.type = o.type;
         this.visited.addAll(o.visited);

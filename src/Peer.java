@@ -24,10 +24,12 @@ class Peer {
      * Stores data that's shared between all threads and instances of the Peer class.
      */
     static class Shared {
-        static AtomicReference<Map<String, ArrayList<Integer>>> callBackCounter = new AtomicReference<>(new HashMap<>());
+        static AtomicReference<Map<String, ArrayList<Integer>>> callBackCounter = new AtomicReference<>();
+        static AtomicReference<Map<String, Map<String, Boolean>>> pollingResults = new AtomicReference<>();
+        static AtomicReference<Map<String, LinkedList<Object>>> listCallbacks = new AtomicReference<>();
+        static volatile Map<String, Integer> numTraversalMessage = new HashMap<>();
         static ExecutorService threadManager = Executors.newCachedThreadPool();
         static volatile boolean running;
-        static volatile Map<String, Integer> numTraversalMessage = new HashMap<>();
     }
 
     /**
@@ -172,30 +174,28 @@ class Peer {
      *
      * @param o Object to be sent.
      */
-    void sendToAllPeers(Object o) {
+    void sendToAllPeers(Object o, LocalTime time) {
         TraversalObj traversalObj = new TraversalObj();
         traversalObj.data = o;
         traversalObj.visited = new LinkedList<>();
         traversalObj.globalSource = Ipv4Local;
         traversalObj.type = "FORWARD";
         traversalObj.callbackSubject = Ipv4Local;
-        traversalObj.timeStamp = LocalTime.now(Clock.systemUTC());
+        traversalObj.timeStamp = time;
         handleObjData(traversalObj);
     }
 
     /**
      * Used to increase the currentNumberOfCallbacks by 1.
-     *
-     * @param reference Reference to the callback Map.
+     *  @param reference Reference to the callback Map.
      * @param key       Key of desired callback counter.
-     * @param index     Index of callback ArrayList. Index 1 - Max Value of Callbacks : Index 2 - Current number of callbacks
      */
-    private void updateCallbackCounter(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key, int index) {
+    private void updateCallbackCounter(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key) {
         Map<String, ArrayList<Integer>> before, after = new HashMap<>();
         do {
             before = reference.get();
             after.putAll(before);
-            after.get(key).set(index, after.get(key).get(index) + 1);
+            after.get(key).set(0, after.get(key).get(0) + 1);
         } while (!reference.compareAndSet(before, after));
     }
 
@@ -237,13 +237,17 @@ class Peer {
             return;
         }
         pollingObj.pollResults.put(Ipv4Local, (new Random()).nextBoolean());
+
+        /* TODO REMOVE THE BLOCK BELOW */
         System.out.println("|| POLLING MAP ||");
         pollingObj.pollResults.forEach((key, value) -> System.out.println(key + " : " + value));
         System.out.println("-----------------");
     }
 
-    void startPollingMessage() {
-        handleObjData(new PollingMessage());
+    Map<String, Boolean> startPollingMessage() {
+        LocalTime time = LocalTime.now(Clock.systemUTC());
+        sendToAllPeers(new PollingMessage(), time);
+        return new HashMap<>(Shared.pollingResults.get().get(time.toString()));
     }
 
     /**
@@ -258,21 +262,25 @@ class Peer {
         String timeStamp = traversalObj.timeStamp.toString();
 
         initCounterAtomically(Peer.Shared.callBackCounter, timeStamp);
+        Shared.numTraversalMessage.put(timeStamp, 0);
 
         TraversalObj sendingData = new TraversalObj();
         sendingData.equals(traversalObj);
         sendingData.callbackSubject = Ipv4Local;
 
         connections.values().stream().filter(connection -> !traversalObj.visited.contains(connection.ip)).forEach(connection -> {
-            updateCallbackCounter(Shared.callBackCounter, timeStamp, 0);
-            Shared.threadManager.submit(() -> sendObject(sendingData, connection.ip));
+            updateCallbackCounter(Shared.callBackCounter, timeStamp);
             Shared.numTraversalMessage.put(timeStamp, Shared.numTraversalMessage.get(timeStamp) + 1);
+            Shared.threadManager.submit(() -> sendObject(sendingData, connection.ip));
         });
 
         waitForCallbacks(timeStamp);
         if (traversalObj.globalSource.equals(Ipv4Local)) {
             System.out.println("CONFIRMATION: DATA REACHED ALL NODES");
             System.out.println("NUMBER OF MESSAGES SENT: " + Shared.numTraversalMessage.get(timeStamp));
+            if (traversalObj.data instanceof PollingMessage) {
+                atomicallyUpdatePollResults(Shared.pollingResults, timeStamp, Shared.listCallbacks.get().get(timeStamp));
+            }
             return;
         }
         traversalObj.type = "CALLBACK";
@@ -303,7 +311,11 @@ class Peer {
     private boolean checkBaseCase(TraversalObj data) {
         if (Peer.Shared.callBackCounter.get().containsKey(data.timeStamp.toString())) {
             if (data.type.startsWith("CALLBACK")) {
-                updateCallbackCounter(Peer.Shared.callBackCounter, data.timeStamp.toString(), 1);
+/*
+                if (data.type.equals("CALLBACK")) {
+                }
+*/
+                atomicallyUpdateCallbackList(Shared.listCallbacks, data.timeStamp.toString(), data.data);
                 return true;
             }
             data.visited.add(Ipv4Local);
@@ -316,11 +328,45 @@ class Peer {
     }
 
     /**
-     * Handles received text data. (Log the message)
+     * Handles received text data. (Logs the text message)
      *
      * @param text The text received.
      */
+    
     private void handleTextData(SerializableText text) {
         System.out.println(text.text + " (" + text.timeStamp.toString() + ")" + "(" + text.source + ")");
+    }
+
+    private void atomicallyUpdateCallbackList(AtomicReference<Map<String, LinkedList<Object>>> reference, String key, Object o) {
+        Map<String, LinkedList<Object>> before, after = new HashMap<>();
+        do {
+            before = reference.get();
+            after.putAll(before);
+            if (after.containsKey(key)) {
+                after.get(key).add(o);
+            } else {
+                after.put(key, new LinkedList<>(Collections.nCopies(1, o)));
+            }
+        } while (!reference.compareAndSet(before, after));
+    }
+
+    private void atomicallyUpdatePollResults(AtomicReference<Map<String, Map<String, Boolean>>> reference, String key, LinkedList<Object> newValue) {
+        Map<String, Map<String, Boolean>> before, after = new HashMap<>();
+        if (newValue.isEmpty()) {
+            return;
+        } else {
+            System.out.println("New Value Is Empty");
+        }
+        if (newValue.get(0) instanceof TraversalObj) {
+            do {
+                before = reference.get();
+                after.putAll(before);
+                for (Object newEntry : newValue) {
+                    after.put(key, ((PollingMessage) ((TraversalObj) newEntry).data).pollResults);
+                }
+            } while (!reference.compareAndSet(before, after));
+        } else {
+            System.out.println("Could not update poll results.");
+        }
     }
 }

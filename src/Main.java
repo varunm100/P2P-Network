@@ -4,6 +4,10 @@
  */
 
 import java.io.File;
+import java.time.Clock;
+import java.time.LocalTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 
 public class Main {
@@ -18,18 +22,22 @@ public class Main {
         String command;
         while (Peer.Shared.running) {
             command = Main.scanner.nextLine();
+            String finalCommand = command;
             if (command.equals("/exit")) {
                 peer.stop();
                 Main.scanner.close();
                 break;
             } else if (command.startsWith("/sendto;")) {
-                peer.sendObject(new SerializableText(command.split(";")[2], peer.Ipv4Local), command.split(";")[1]);
+                Peer.Shared.threadManager.submit(() -> peer.sendObject(new SerializableText(finalCommand.split(";")[2], peer.Ipv4Local), finalCommand.split(";")[1]));
             } else if (command.startsWith("/sendtoall;")) {
-                peer.sendToAllPeers(new SerializableText(command.split(";")[1], peer.Ipv4Local));
+                Peer.Shared.threadManager.submit(() -> peer.sendToAllPeers(new SerializableText(finalCommand.split(";")[1], peer.Ipv4Local), LocalTime.now(Clock.systemUTC())));
             } else if (command.startsWith("/sendtoadj;")) {
-                peer.sendToAdjPeers(new SerializableText(command.split(";")[1], peer.Ipv4Local));
+                Peer.Shared.threadManager.submit(() -> peer.sendToAdjPeers(new SerializableText(finalCommand.split(";")[1], peer.Ipv4Local)));
             } else if (command.startsWith("/startpolling")) {
-                peer.startPollingMessage();
+                Map<String, Boolean> pollResults = new HashMap<>(peer.startPollingMessage());
+                System.out.println("FINAL POLL RESULTS");
+                pollResults.forEach((key,value) -> System.out.println(key + " : " + value));
+                System.out.println("__________________");
             } else if (command.startsWith("/")) {
                 System.out.println("'" + command + "' is not recognized as a valid command.");
             }
@@ -45,7 +53,7 @@ public class Main {
 
         o.handleCommandInput(peer);
 
-        /* TODO Add polling system */
+        /* TODO Add polling system : DONE WITH CODE : STILL HAVE TO DEBUG */
         /* TODO Get list of active peers. */
         /* TODO Pick random peer in the network. */
     }
