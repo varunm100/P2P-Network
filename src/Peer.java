@@ -24,10 +24,10 @@ class Peer {
      * Stores data that's shared between all threads and instances of the Peer class.
      */
     static class Shared {
-        static AtomicReference<Map<String, ArrayList<Integer>>> callBackCounter = new AtomicReference<>();
-        static AtomicReference<Map<String, Map<String, Boolean>>> pollingResults = new AtomicReference<>();
-        static AtomicReference<Map<String, LinkedList<Object>>> listCallbacks = new AtomicReference<>();
-        static volatile Map<String, Integer> numTraversalMessage = new HashMap<>();
+        static AtomicReference<Map<String, ArrayList<Integer>>> callBackCounter = new AtomicReference<>(new HashMap<>());
+        static AtomicReference<Map<String, Map<String, Boolean>>> pollingResults = new AtomicReference<>(new HashMap<>());
+        static AtomicReference<Map<String, LinkedList<Object>>> listCallbacks = new AtomicReference<>(new HashMap<>());
+        static volatile Map<String, Integer> numTraversalMessage = new HashMap<>(new HashMap<>());
         static ExecutorService threadManager = Executors.newCachedThreadPool();
         static volatile boolean running;
     }
@@ -190,12 +190,12 @@ class Peer {
      *  @param reference Reference to the callback Map.
      * @param key       Key of desired callback counter.
      */
-    private void updateCallbackCounter(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key) {
+    private void updateCallbackCounter(AtomicReference<Map<String, ArrayList<Integer>>> reference, String key, int index) {
         Map<String, ArrayList<Integer>> before, after = new HashMap<>();
         do {
             before = reference.get();
             after.putAll(before);
-            after.get(key).set(0, after.get(key).get(0) + 1);
+            after.get(key).set(0, after.get(key).get(index) + 1);
         } while (!reference.compareAndSet(before, after));
     }
 
@@ -269,7 +269,7 @@ class Peer {
         sendingData.callbackSubject = Ipv4Local;
 
         connections.values().stream().filter(connection -> !traversalObj.visited.contains(connection.ip)).forEach(connection -> {
-            updateCallbackCounter(Shared.callBackCounter, timeStamp);
+            updateCallbackCounter(Shared.callBackCounter, timeStamp, 0);
             Shared.numTraversalMessage.put(timeStamp, Shared.numTraversalMessage.get(timeStamp) + 1);
             Shared.threadManager.submit(() -> sendObject(sendingData, connection.ip));
         });
@@ -311,10 +311,7 @@ class Peer {
     private boolean checkBaseCase(TraversalObj data) {
         if (Peer.Shared.callBackCounter.get().containsKey(data.timeStamp.toString())) {
             if (data.type.startsWith("CALLBACK")) {
-/*
-                if (data.type.equals("CALLBACK")) {
-                }
-*/
+                updateCallbackCounter(Shared.callBackCounter, data.timeStamp.toString(), 1);
                 atomicallyUpdateCallbackList(Shared.listCallbacks, data.timeStamp.toString(), data.data);
                 return true;
             }
@@ -334,7 +331,7 @@ class Peer {
      */
     
     private void handleTextData(SerializableText text) {
-        System.out.println(text.text + " (" + text.timeStamp.toString() + ")" + "(" + text.source + ")");
+        System.out.println(text.text + " (" + text.timeStamp.toString() + ")(" + text.source + ")");
     }
 
     private void atomicallyUpdateCallbackList(AtomicReference<Map<String, LinkedList<Object>>> reference, String key, Object o) {
