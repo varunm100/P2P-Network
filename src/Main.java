@@ -42,5 +42,8 @@ public class Main {
         peer.startPeer(new File("peer-config.config"));
 
         o.handleCommandInput(peer);
+        // TODO Add sendToNode (Universal)  (1)
+        // TODO Add getRandomNode           (2)
+        // TODO Add startPolling            (3)
     }
 }

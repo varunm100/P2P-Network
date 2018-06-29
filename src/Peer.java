@@ -25,7 +25,9 @@ class Peer {
      */
     static class Shared {
         static AtomicReference<Map<String, ArrayList<Integer>>> callBackCounter = new AtomicReference<>(new HashMap<>());
+        static AtomicReference<Map<String, LinkedList<Object>>> callBackData = new AtomicReference<>(new HashMap<>());
         static ExecutorService threadManager = Executors.newCachedThreadPool();
+        static volatile int numMessagesCount = 0;
         static volatile boolean running;
     }
 
@@ -251,15 +253,20 @@ class Peer {
                             .forEach(connection -> {
                                 updateCallbackCounter(Shared.callBackCounter, timeStamp, 0);
                                 Shared.threadManager.submit(() -> sendObject(sendingData, connection.ip));
+                                Shared.numMessagesCount += 1;
                             });
 
         waitForCallbacks(timeStamp);
         if (traversalObj.globalSource.equals(Ipv4Local)) {
+            System.out.println("Sent " + Shared.numMessagesCount + " messages to send data.");
             System.out.println("CONFIRMATION: DATA REACHED ALL NODES");
             return;
         }
         traversalObj.type = "CALLBACK";
         sendObject(traversalObj, traversalObj.callbackSubject);
+        Shared.numMessagesCount += 1;
+        System.out.println("Sent " + Shared.numMessagesCount + " messages to send data.");
+        Shared.numMessagesCount = 0;
     }
 
     /**
@@ -286,11 +293,14 @@ class Peer {
         if (Peer.Shared.callBackCounter.get().containsKey(data.timeStamp.toString())) {
             if (data.type.startsWith("CALLBACK")) {
                 updateCallbackCounter(Peer.Shared.callBackCounter, data.timeStamp.toString(), 1);
+                updateCallback(Shared.callBackData, data.data, data.timeStamp.toString());
+                Shared.numMessagesCount += 1;
                 return true;
             }
             data.visited.add(Ipv4Local);
             data.type = "CALLBACKINVALID";
             sendObject(data, data.callbackSubject);
+            Shared.numMessagesCount += 1;
             return true;
         }
         return false;
@@ -303,5 +313,15 @@ class Peer {
      */
     private void handleTextData(SerializableText text) {
         System.out.println(text.text + " (" + text.timeStamp.toString() + ")" + "(" + text.source + ")");
+    }
+
+    private void updateCallback(AtomicReference<Map<String, LinkedList<Object>>> reference, Object newObj, String key) {
+        Map<String, LinkedList<Object>> before, after = new HashMap<>();
+        do {
+            before = reference.get();
+            after.putAll(before);
+            after.get(key).add(newObj);
+        } while (!reference.compareAndSet(before, after));
+
     }
 }
