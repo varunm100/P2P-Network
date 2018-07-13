@@ -227,7 +227,7 @@ class Peer {
         } else if (o instanceof TraversalObj) {
             recursiveTraversal((TraversalObj) o);
         } else if (o instanceof NCount) {
-            System.out.println("This is the " + ((NCount) o).maxCount + "th adjacent node");
+            /* TODO DO POLLING HERE */
         } else {
             System.out.println("Received an unrecognizable object.");
         }
@@ -240,7 +240,7 @@ class Peer {
      */
     private void recursiveTraversal(TraversalObj traversalObj) {
         if (checkBaseCase(traversalObj)) return;
-        handleObjData(traversalObj.data);
+        if (!(traversalObj.data instanceof NCount)) handleObjData(traversalObj.data);
         traversalObj.visited.add(Ipv4Local);
         String timeStamp = traversalObj.timeStamp.toString();
 
@@ -251,17 +251,14 @@ class Peer {
         sendingData.callbackSubject = Ipv4Local;
         /* UPDATE RECEIVED DATA */
         if (traversalObj.data instanceof NCount) {
-            NCount dataRec = (NCount) sendingData.data;
+            sendingData.data = new NCount(((NCount) traversalObj.data).count + 1, ((NCount) traversalObj.data).maxCount, ((NCount) traversalObj.data).object);
+            NCount dataRec = (NCount) traversalObj.data;
             if (dataRec.count >= dataRec.maxCount) {
                 traversalObj.type = "CALLBACK";
                 sendObject(traversalObj, traversalObj.callbackSubject);
-                Shared.numMessagesCount += 1;
-                System.out.println("Sent " + Shared.numMessagesCount + " messages to send data.");
                 Shared.numMessagesCount = 0;
                 handleObjData(((NCount) traversalObj.data).object);
                 return;
-            } else {
-                sendingData.data = new NCount(dataRec.count + 1, dataRec.maxCount);
             }
         }
 
@@ -346,9 +343,12 @@ class Peer {
         } while (!reference.compareAndSet(before, after));
     }
 
+    /**
+     * Sends data to all Nth adjacent nodes.
+     * @param n n is the search depth.
+     * @param o o is the data to be sent.
+     */
     void sendToNAdjNode(int n, Object o) {
-        NCount temp = new NCount(-1,n);
-        temp.object = o;
-        sendToAllPeers(temp);
+        sendToAllPeers(new NCount(-1, n, o));
     }
 }

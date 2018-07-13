@@ -43,9 +43,8 @@ public class Main {
         peer.startPeer(new File("peer-config.config"));
 
         handleCommandInput(peer);
-        // TODO Add sendToNthAdjNode        (1) : DONE : STILL HAVE TO DEBUG
-        // TODO Add sendToNode (Universal)  (2) : MIGHT NOT NEED
-        // TODO Add getRandomNode           (3) : Part OF Task 1
-        // TODO Add startPolling            (4)
+        // TODO Add sendToNthAdjNode        (1) : DONE : WORKS
+        // TODO Add getRandomNode           (2) : DONE : WORKS
+        // TODO Add startPolling            (3) : TO BE DONE : SHOULD BE EASY
     }
 }

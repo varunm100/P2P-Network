@@ -9,8 +9,10 @@ class NCount implements Serializable {
     int count;
     int maxCount;
     Object object;
-    NCount(int _count, int _maxCount) {
+
+    NCount(int _count, int _maxCount, Object _object) {
         count = _count;
         maxCount = _maxCount;
+        object = _object;
     }
 }
