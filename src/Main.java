@@ -14,7 +14,7 @@ public class Main {
      *
      * @param peer Peer Object.
      */
-    private void handleCommandInput(Peer peer) {
+    private static void handleCommandInput(Peer peer) {
         String command;
         while (Peer.Shared.running) {
             command = Main.scanner.nextLine();
@@ -28,6 +28,8 @@ public class Main {
                 peer.sendToAllPeers(new SerializableText(command.split(";")[1], peer.Ipv4Local));
             } else if (command.startsWith("/sendtoadj;")) {
                 peer.sendToAdjPeers(new SerializableText(command.split(";")[1], peer.Ipv4Local));
+            } else if (command.startsWith("/sendtoallnth;")) {
+                peer.sendToNAdjNode(Integer.parseInt(command.split(";")[1]), command.split(";")[2]);
             } else if (command.startsWith("/")) {
                 System.out.println("'" + command + "' is not recognized as a valid command.");
             }
@@ -35,15 +37,15 @@ public class Main {
     }
 
     public static void main(String args[]) {
-        Main o = new Main();
         Main.scanner = new Scanner(System.in);
 
         Peer peer = new Peer();
         peer.startPeer(new File("peer-config.config"));
 
-        o.handleCommandInput(peer);
-        // TODO Add sendToNode (Universal)  (1)
-        // TODO Add getRandomNode           (2)
-        // TODO Add startPolling            (3)
+        handleCommandInput(peer);
+        // TODO Add sendToNthAdjNode        (1) : DONE : STILL HAVE TO DEBUG
+        // TODO Add sendToNode (Universal)  (2) : MIGHT NOT NEED
+        // TODO Add getRandomNode           (3) : Part OF Task 1
+        // TODO Add startPolling            (4)
     }
 }

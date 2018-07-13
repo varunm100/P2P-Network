@@ -226,6 +226,8 @@ class Peer {
             handleTextData((SerializableText) o);
         } else if (o instanceof TraversalObj) {
             recursiveTraversal((TraversalObj) o);
+        } else if (o instanceof NCount) {
+            System.out.println("This is the " + ((NCount) o).maxCount + "th adjacent node");
         } else {
             System.out.println("Received an unrecognizable object.");
         }
@@ -247,6 +249,21 @@ class Peer {
         TraversalObj sendingData = new TraversalObj();
         sendingData.equals(traversalObj);
         sendingData.callbackSubject = Ipv4Local;
+        /* UPDATE RECEIVED DATA */
+        if (traversalObj.data instanceof NCount) {
+            NCount dataRec = (NCount) sendingData.data;
+            if (dataRec.count >= dataRec.maxCount) {
+                traversalObj.type = "CALLBACK";
+                sendObject(traversalObj, traversalObj.callbackSubject);
+                Shared.numMessagesCount += 1;
+                System.out.println("Sent " + Shared.numMessagesCount + " messages to send data.");
+                Shared.numMessagesCount = 0;
+                handleObjData(((NCount) traversalObj.data).object);
+                return;
+            } else {
+                sendingData.data = new NCount(dataRec.count + 1, dataRec.maxCount);
+            }
+        }
 
         connections.values().stream()
                             .filter(connection -> !traversalObj.visited.contains(connection.ip))
@@ -315,6 +332,11 @@ class Peer {
         System.out.println(text.text + " (" + text.timeStamp.toString() + ")" + "(" + text.source + ")");
     }
 
+    /**
+     * @param reference AtomicReference to callback list.
+     * @param newObj new object to be added in the callback list.
+     * @param key time stamp of message.
+     */
     private void updateCallback(AtomicReference<Map<String, LinkedList<Object>>> reference, Object newObj, String key) {
         Map<String, LinkedList<Object>> before, after = new HashMap<>();
         do {
@@ -322,6 +344,11 @@ class Peer {
             after.putAll(before);
             after.get(key).add(newObj);
         } while (!reference.compareAndSet(before, after));
+    }
 
+    void sendToNAdjNode(int n, Object o) {
+        NCount temp = new NCount(-1,n);
+        temp.object = o;
+        sendToAllPeers(temp);
     }
 }
