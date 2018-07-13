@@ -1,8 +1,11 @@
+import java.io.Serializable;
+
 /**
  * @author varun on 7/4/2018
  * @project P2P-Network
  */
-class NCount {
+class NCount implements Serializable {
+    private static final long serialVersionUID = -2262288895514226561L;
     int count;
     int maxCount;
     Object object;
