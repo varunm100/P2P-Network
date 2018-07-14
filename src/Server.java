@@ -15,7 +15,7 @@ class Server {
     private ServerSocket serverSocket;
     private LinkedList<Socket> socketList = new LinkedList<>();
     private LinkedList<ObjectInputStream> objInputStreams = new LinkedList<>();
-    private Consumer<Object> handleDataReceived = null;
+    private Consumer<Object> handleReceivedData = null;
 
     /**
      * Server Class.
@@ -29,9 +29,7 @@ class Server {
      * @param socket Socket Object
      * @return Returns formatted IP address.
      */
-    private String formatIP(Socket socket) {
-        return socket != null ? socket.getInetAddress().toString().replace("/", "") : "";
-    }
+    private String formatIP(Socket socket) { return socket != null ? socket.getInetAddress().toString().replace("/", "") : ""; }
 
     /**
      * Finds a suitable client for the server. (Only allows certain IP addresses to connect to it)
@@ -52,7 +50,7 @@ class Server {
                     System.out.println("Rejected Client " + formatIP(tempSocket) + ":" + tempSocket.getPort());
                 }
             } catch (IOException e) {
-                System.out.println("Error occurred while trying to accept client connection.");
+                System.out.println("Error occurred while trying to accept a client connection.");
                 e.printStackTrace();
             }
         }
@@ -64,11 +62,11 @@ class Server {
      *
      * @param inStream ObjectInputStream
      */
-    private void inputStreamListener(ObjectInputStream inStream) {
+    private void startStreamListener(ObjectInputStream inStream) {
         while (Peer.Shared.running) {
             try {
                 Object o = inStream.readObject();
-                Peer.Shared.threadManager.submit(() -> handleDataReceived.accept(o));
+                Peer.Shared.threadManager.submit(() -> handleReceivedData.accept(o));
             } catch (IOException e) {
                 System.out.println("Error occurred while receiving data.");
                 e.printStackTrace();
@@ -86,7 +84,7 @@ class Server {
      * @param port      The port number at which the server initializes.
      */
     void startServer(LinkedList<String> adjPeerIP, int port, Consumer<Object> handleSocketInputStream) {
-        handleDataReceived = handleSocketInputStream;
+        handleReceivedData = handleSocketInputStream;
         try {
             serverSocket = new ServerSocket(port);
             serverSocket.setSoTimeout(0);
@@ -99,7 +97,7 @@ class Server {
             try {
                 socketList.add(findSuitableClient(adjPeerIP));
                 objInputStreams.add(new ObjectInputStream(socketList.getLast().getInputStream()));
-                Peer.Shared.threadManager.submit(() -> inputStreamListener(objInputStreams.getLast()));
+                Peer.Shared.threadManager.submit(() -> startStreamListener(objInputStreams.getLast()));
                 System.out.println("Server connected to " + formatIP(socketList.getLast()) + ":" + socketList.getLast().getPort() + " (" + (adjPeerIP.indexOf(peer) + 1) + "/" + adjPeerIP.size() + ")");
             } catch (IOException e) {
                 System.out.println("Error occurred while finding a suitable client.");

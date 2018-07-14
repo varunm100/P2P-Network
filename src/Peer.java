@@ -12,8 +12,6 @@ import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
-import java.util.stream.IntStream;
 
 class Peer {
     private Server server;
@@ -21,7 +19,7 @@ class Peer {
     private Map<String, Connection> connections = new HashMap<>();
 
     /**
-     * Stores data that's shared between all threads and instances of the Peer class.
+     * Stores data that's shared between all threads.
      */
     static class Shared {
         static AtomicReference<Map<String, ArrayList<Integer>>> callBackCounter = new AtomicReference<>(new HashMap<>());
@@ -94,22 +92,21 @@ class Peer {
      */
     void startPeer(File configFile) {
         Peer.Shared.running = true;
-        Consumer<Object> handleSocketInput = this::handleObjData;
         Ipv4Local = getLocalIpv4();
 
         PeerData peerData = parseConfigFile(configFile);
         Map<String, Integer> adjPeerInfo = new HashMap<>(peerData.adjPeers);
         LinkedList<String> adjIP = new LinkedList<>(adjPeerInfo.keySet());
         LinkedList<Integer> adjPort = new LinkedList<>(adjPeerInfo.values());
-        Future queryThread = Shared.threadManager.submit(() -> server.startServer(adjIP, peerData.serverPort, handleSocketInput));
+        Future queryThread = Shared.threadManager.submit(() -> server.startServer(adjIP, peerData.serverPort, this::handleObjData));
 
-        System.out.println("Press [ENTER] to start client querying. " + "(" + adjPeerInfo.size() + ")");
+        System.out.println("Press [ENTER] to start client querying. (" + adjPeerInfo.size() + ")");
         Main.scanner.nextLine();
 
-        IntStream.range(0, adjPeerInfo.size()).forEach(i -> {
+        for (int i = 0; i < adjPeerInfo.size(); ++i) {
             connections.put(adjIP.get(i), new Connection());
             connections.get(adjIP.get(i)).establishConnection(adjIP.get(i), adjPort.get(i));
-        });
+        }
         try {
             queryThread.get();
         } catch (InterruptedException e) {
@@ -186,7 +183,7 @@ class Peer {
     }
 
     /**
-     * Used to increase the currentNumberOfCallbacks by 1.
+     * Incrementing the number of callbacks by 1.
      *
      * @param reference Reference to the callback Map.
      * @param key       Key of desired callback counter.
@@ -267,7 +264,7 @@ class Peer {
                             .forEach(connection -> {
                                 updateCallbackCounter(Shared.callBackCounter, timeStamp, 0);
                                 Shared.threadManager.submit(() -> sendObject(sendingData, connection.ip));
-                                Shared.numMessagesCount += 1;
+                                Shared.numMessagesCount++;
                             });
 
         waitForCallbacks(timeStamp);
@@ -351,4 +348,6 @@ class Peer {
     void sendToNAdjNode(int n, Object o) {
         sendToAllPeers(new NCount(-1, n, o));
     }
+
+    void sendToRandomNode(int min, int max, Object o) { sendToNAdjNode((int) (Math.random() * (max - min)) + min, o); }
 }

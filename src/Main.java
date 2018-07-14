@@ -15,21 +15,22 @@ public class Main {
      * @param peer Peer Object.
      */
     private static void handleCommandInput(Peer peer) {
-        String command;
         while (Peer.Shared.running) {
-            command = Main.scanner.nextLine();
+            final String command = Main.scanner.nextLine();
             if (command.equals("/exit")) {
                 peer.stop();
                 Main.scanner.close();
                 break;
             } else if (command.startsWith("/sendto;")) {
-                peer.sendObject(new SerializableText(command.split(";")[2], peer.Ipv4Local), command.split(";")[1]);
+                Peer.Shared.threadManager.submit(() -> peer.sendObject(new SerializableText(command.split(";")[2], peer.Ipv4Local), command.split(";")[1]));
             } else if (command.startsWith("/sendtoall;")) {
-                peer.sendToAllPeers(new SerializableText(command.split(";")[1], peer.Ipv4Local));
+                Peer.Shared.threadManager.submit(() -> peer.sendToAllPeers(new SerializableText(command.split(";")[1], peer.Ipv4Local)));
             } else if (command.startsWith("/sendtoadj;")) {
-                peer.sendToAdjPeers(new SerializableText(command.split(";")[1], peer.Ipv4Local));
+                Peer.Shared.threadManager.submit(() -> peer.sendToAdjPeers(new SerializableText(command.split(";")[1], peer.Ipv4Local)));
             } else if (command.startsWith("/sendtoallnth;")) {
-                peer.sendToNAdjNode(Integer.parseInt(command.split(";")[1]), command.split(";")[2]);
+                Peer.Shared.threadManager.submit(() -> peer.sendToNAdjNode(Integer.parseInt(command.split(";")[1]), command.split(";")[2]));
+            } else if (command.startsWith("/sendToRandomNode;")) {
+                Peer.Shared.threadManager.submit(() -> peer.sendToRandomNode(Integer.parseInt(command.split(";")[1]), Integer.parseInt(command.split(";")[2]), command.split(";")[3]));
             } else if (command.startsWith("/")) {
                 System.out.println("'" + command + "' is not recognized as a valid command.");
             }
@@ -44,7 +45,7 @@ public class Main {
 
         handleCommandInput(peer);
         // TODO Add sendToNthAdjNode        (1) : DONE : WORKS
-        // TODO Add getRandomNode           (2) : DONE : WORKS
+        // TODO Add sendToRandomNode        (2) : DONE : WORKS
         // TODO Add startPolling            (3) : TO BE DONE : SHOULD BE EASY
     }
 }
