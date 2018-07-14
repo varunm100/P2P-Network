@@ -29,7 +29,7 @@ public class Main {
                 peer.sendToAdjPeers(new SerializableText(command.split(";")[1], peer.Ipv4Local));
             } else if (command.startsWith("/sendtoallnth;")) {
                 peer.sendToNAdjNode(Integer.parseInt(command.split(";")[1]), new SerializableText(command.split(";")[2], peer.Ipv4Local));
-            } else if (command.startsWith("/sendToRandomNode;")) {
+            } else if (command.startsWith("/sendtoRandomPeer;")) {
                 peer.sendToRandomNode(Integer.parseInt(command.split(";")[1]), Integer.parseInt(command.split(";")[2]), new SerializableText(command.split(";")[3], peer.Ipv4Local));
             } else if (command.startsWith("/startpolling")) {
                 peer.startPolling();
@@ -49,6 +49,7 @@ public class Main {
 
         // TODO Add sendToNthAdjNode        (1) : DONE : WORKS
         // TODO Add sendToRandomNode        (2) : DONE : WORKS
-        // TODO Add startPolling            (3) : TO BE DONE : SHOULD BE EASY
+        // TODO Add startPolling            (3) : DONE : WORKS
+        // TODO Add newBlock                (4) : TO BE DONE : SHOULD BE RELATIVELY EASY
     }
 }

@@ -22,7 +22,6 @@ class Peer {
      * Stores data that's shared between all threads.
      */
     static class Shared {
-
         static AtomicReference<Map<String, ArrayList<Integer>>> callBackCounter = new AtomicReference<>(new HashMap<>());
         static AtomicReference<Map<String, LinkedList<Object>>> callBackData = new AtomicReference<>(new HashMap<>());
         static ExecutorService threadManager = Executors.newCachedThreadPool();
@@ -80,8 +79,7 @@ class Peer {
             e.printStackTrace();
         }
         Main.scanner = new Scanner(System.in);
-        if (adjPeers.isEmpty() || serverPort == -1)
-            System.out.println("Error while parsing config file. (" + file.getPath() + ")");
+        if (adjPeers.isEmpty() || serverPort == -1) System.out.println("Error while parsing config file. (" + file.getPath() + ")");
         return new PeerData(adjPeers, serverPort);
     }
 
@@ -140,7 +138,7 @@ class Peer {
         try {
             Shared.threadManager.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
         } catch (InterruptedException e) {
-            System.out.println("Error while waiting for threads to terminate.");
+            System.out.println("Interrupted while waiting for all threads to execute.");
             e.printStackTrace();
             System.exit(-1);
         }
@@ -242,7 +240,9 @@ class Peer {
      */
     private void recursiveTraversal(TraversalObj traversalObj) {
         if (checkBaseCase(traversalObj)) return;
-        if (!(traversalObj.data instanceof NCount) && !(traversalObj.data instanceof PollingData)) handleObjData(traversalObj.data);
+        boolean isCountObject = traversalObj.data instanceof NCount;
+        boolean isPollingObject = traversalObj.data instanceof PollingData;
+        if (!isCountObject && !isPollingObject) handleObjData(traversalObj.data);
         traversalObj.visited.add(Ipv4Local);
         String timeStamp = traversalObj.timeStamp.toString();
 
@@ -252,7 +252,7 @@ class Peer {
         sendingData.equals(traversalObj);
         sendingData.callbackSubject = Ipv4Local;
         /* UPDATE RECEIVED DATA */
-        if (traversalObj.data instanceof NCount) {
+        if (isCountObject) {
             sendingData.data = new NCount(((NCount) traversalObj.data).count + 1, ((NCount) traversalObj.data).maxCount, ((NCount) traversalObj.data).object);
             NCount dataRec = (NCount) sendingData.data;
             if (dataRec.count >= dataRec.maxCount) {
@@ -262,7 +262,7 @@ class Peer {
                 handleObjData(((NCount) traversalObj.data).object);
                 return;
             }
-        } else if (traversalObj.data instanceof PollingData) {
+        } else if (isPollingObject) {
             ((PollingData) traversalObj.data).addEntry(Ipv4Local, validateBlock());
         }
 
@@ -275,26 +275,20 @@ class Peer {
                             });
 
         waitForCallbacks(timeStamp);
-        if (traversalObj.data instanceof PollingData && Shared.callBackData.get().containsKey(timeStamp)) {
-            System.out.println("WERK BOI 1");
+        if (isPollingObject && Shared.callBackData.get().containsKey(timeStamp)) {
             LinkedList<Object> rec = Shared.callBackData.get().get(timeStamp);
             PollingData reference = (PollingData) traversalObj.data;
-            rec.forEach(data ->  {
-                System.out.println("CALLED");
-                System.out.println(data instanceof PollingData);
-                reference.merge((PollingData) data);
-            });
+            rec.forEach(data -> reference.merge((PollingData) data));
         }
         if (traversalObj.globalSource.equals(Ipv4Local)) {
-            System.out.println("Sent " + Shared.numMessagesCount + " messages to send data.");
-            System.out.println("CONFIRMATION: DATA REACHED ALL NODES");
-            if (traversalObj.data instanceof PollingData) handleObjData(traversalObj.data);
+            System.out.println("CONFIRMATION: DATA REACHED ALL NODES, sent " + Shared.numMessagesCount + " messages.");
+            Shared.numMessagesCount = 0;
+            if (isPollingObject) handleObjData(traversalObj.data);
             return;
         }
         traversalObj.type = "CALLBACK";
         sendObject(traversalObj, traversalObj.callbackSubject);
-        Shared.numMessagesCount += 1;
-        System.out.println("Sent " + Shared.numMessagesCount + " messages to send data.");
+        System.out.println("CONFIRMATION: DATA REACHED ALL NODES, sent " + (Shared.numMessagesCount+1) + " messages.");
         Shared.numMessagesCount = 0;
     }
 
@@ -331,13 +325,13 @@ class Peer {
             if (data.type.startsWith("CALLBACK")) {
                 updateCallbackCounter(Shared.callBackCounter, data.timeStamp.toString(), 1);
                 updateCallback(data.data, data.timeStamp.toString());
-                Shared.numMessagesCount += 1;
+                Shared.numMessagesCount++;
                 return true;
             }
             data.visited.add(Ipv4Local);
             data.type = "CALLBACKINVALID";
             sendObject(data, data.callbackSubject);
-            Shared.numMessagesCount += 1;
+            Shared.numMessagesCount++;
             return true;
         }
         return false;
@@ -363,9 +357,8 @@ class Peer {
             after.putAll(before);
             if (!after.containsKey(key)) {
                 after.put(key, new LinkedList<>());
-            } else {
-                after.get(key).add(newObj);
             }
+            after.get(key).add(newObj);
         } while (!Shared.callBackData.compareAndSet(before, after));
     }
 
@@ -378,5 +371,5 @@ class Peer {
         sendToAllPeers(new NCount(-1, n, o));
     }
 
-    void sendToRandomNode(int min, int max, Object o) { sendToNAdjNode((int) (Math.random() * (max - min)) + min, o); }
+    void sendToRandomNode(int min, int max, Object o) { sendToNAdjNode(new Random().nextInt(max-min+1)+min, o); }
 }
