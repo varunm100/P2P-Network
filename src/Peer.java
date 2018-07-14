@@ -225,6 +225,7 @@ class Peer {
             recursiveTraversal((TraversalObj) o);
         } else if (o instanceof NCount) {
             /* TODO DO POLLING HERE */
+            System.out.println("THIS IS THE CHOSEN ONE BOII");
         } else {
             System.out.println("Received an unrecognizable object.");
         }
@@ -249,7 +250,7 @@ class Peer {
         /* UPDATE RECEIVED DATA */
         if (traversalObj.data instanceof NCount) {
             sendingData.data = new NCount(((NCount) traversalObj.data).count + 1, ((NCount) traversalObj.data).maxCount, ((NCount) traversalObj.data).object);
-            NCount dataRec = (NCount) traversalObj.data;
+            NCount dataRec = (NCount) sendingData.data;
             if (dataRec.count >= dataRec.maxCount) {
                 traversalObj.type = "CALLBACK";
                 sendObject(traversalObj, traversalObj.callbackSubject);
