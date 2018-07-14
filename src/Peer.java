@@ -275,10 +275,15 @@ class Peer {
                             });
 
         waitForCallbacks(timeStamp);
-        if (traversalObj.data instanceof PollingData) {
+        if (traversalObj.data instanceof PollingData && Shared.callBackData.get().containsKey(timeStamp)) {
+            System.out.println("WERK BOI 1");
             LinkedList<Object> rec = Shared.callBackData.get().get(timeStamp);
             PollingData reference = (PollingData) traversalObj.data;
-            rec.forEach(data -> reference.merge((PollingData) data));
+            rec.forEach(data ->  {
+                System.out.println("CALLED");
+                System.out.println(data instanceof PollingData);
+                reference.merge((PollingData) data);
+            });
         }
         if (traversalObj.globalSource.equals(Ipv4Local)) {
             System.out.println("Sent " + Shared.numMessagesCount + " messages to send data.");
@@ -322,10 +327,10 @@ class Peer {
      * @return Returns whether the Peer should continue recursion.
      */
     private boolean checkBaseCase(TraversalObj data) {
-        if (Peer.Shared.callBackCounter.get().containsKey(data.timeStamp.toString())) {
+        if (Shared.callBackCounter.get().containsKey(data.timeStamp.toString())) {
             if (data.type.startsWith("CALLBACK")) {
-                updateCallbackCounter(Peer.Shared.callBackCounter, data.timeStamp.toString(), 1);
-                updateCallback(Shared.callBackData, data.data, data.timeStamp.toString());
+                updateCallbackCounter(Shared.callBackCounter, data.timeStamp.toString(), 1);
+                updateCallback(data.data, data.timeStamp.toString());
                 Shared.numMessagesCount += 1;
                 return true;
             }
@@ -348,17 +353,20 @@ class Peer {
     }
 
     /**
-     * @param reference AtomicReference to callback list.
      * @param newObj new object to be added in the callback list.
      * @param key time stamp of message.
      */
-    private void updateCallback(AtomicReference<Map<String, LinkedList<Object>>> reference, Object newObj, String key) {
+    private void updateCallback(Object newObj, String key) {
         Map<String, LinkedList<Object>> before, after = new HashMap<>();
         do {
-            before = reference.get();
+            before = Shared.callBackData.get();
             after.putAll(before);
-            after.get(key).add(newObj);
-        } while (!reference.compareAndSet(before, after));
+            if (!after.containsKey(key)) {
+                after.put(key, new LinkedList<>());
+            } else {
+                after.get(key).add(newObj);
+            }
+        } while (!Shared.callBackData.compareAndSet(before, after));
     }
 
     /**
