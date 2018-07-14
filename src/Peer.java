@@ -22,13 +22,13 @@ class Peer {
      * Stores data that's shared between all threads.
      */
     static class Shared {
+
         static AtomicReference<Map<String, ArrayList<Integer>>> callBackCounter = new AtomicReference<>(new HashMap<>());
         static AtomicReference<Map<String, LinkedList<Object>>> callBackData = new AtomicReference<>(new HashMap<>());
         static ExecutorService threadManager = Executors.newCachedThreadPool();
         static volatile int numMessagesCount = 0;
         static volatile boolean running;
     }
-
     /**
      * Peer class.
      */
@@ -223,12 +223,16 @@ class Peer {
             handleTextData((SerializableText) o);
         } else if (o instanceof TraversalObj) {
             recursiveTraversal((TraversalObj) o);
-        } else if (o instanceof NCount) {
-            /* TODO DO POLLING HERE */
-            System.out.println("THIS IS THE CHOSEN ONE BOII");
+        } else if (o instanceof PollingData) {
+            printPollingResults((PollingData) o);
         } else {
             System.out.println("Received an unrecognizable object.");
         }
+    }
+
+    private void printPollingResults(PollingData o) {
+        System.out.println("-----| POLLING RESULTS |-----");
+        o.pollingResults.forEach((ip, result) -> System.out.println(ip + ":" + result));
     }
 
     /**
@@ -238,7 +242,7 @@ class Peer {
      */
     private void recursiveTraversal(TraversalObj traversalObj) {
         if (checkBaseCase(traversalObj)) return;
-        if (!(traversalObj.data instanceof NCount)) handleObjData(traversalObj.data);
+        if (!(traversalObj.data instanceof NCount) && !(traversalObj.data instanceof PollingData)) handleObjData(traversalObj.data);
         traversalObj.visited.add(Ipv4Local);
         String timeStamp = traversalObj.timeStamp.toString();
 
@@ -258,6 +262,8 @@ class Peer {
                 handleObjData(((NCount) traversalObj.data).object);
                 return;
             }
+        } else if (traversalObj.data instanceof PollingData) {
+            ((PollingData) traversalObj.data).addEntry(Ipv4Local, validateBlock());
         }
 
         connections.values().stream()
@@ -269,9 +275,15 @@ class Peer {
                             });
 
         waitForCallbacks(timeStamp);
+        if (traversalObj.data instanceof PollingData) {
+            LinkedList<Object> rec = Shared.callBackData.get().get(timeStamp);
+            PollingData reference = (PollingData) traversalObj.data;
+            rec.forEach(data -> reference.merge((PollingData) data));
+        }
         if (traversalObj.globalSource.equals(Ipv4Local)) {
             System.out.println("Sent " + Shared.numMessagesCount + " messages to send data.");
             System.out.println("CONFIRMATION: DATA REACHED ALL NODES");
+            if (traversalObj.data instanceof PollingData) handleObjData(traversalObj.data);
             return;
         }
         traversalObj.type = "CALLBACK";
@@ -279,6 +291,14 @@ class Peer {
         Shared.numMessagesCount += 1;
         System.out.println("Sent " + Shared.numMessagesCount + " messages to send data.");
         Shared.numMessagesCount = 0;
+    }
+
+    void startPolling() {
+        sendToAllPeers(new PollingData());
+    }
+
+    private boolean validateBlock() {
+        return new Random().nextBoolean();
     }
 
     /**

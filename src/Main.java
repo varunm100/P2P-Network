@@ -31,6 +31,8 @@ public class Main {
                 peer.sendToNAdjNode(Integer.parseInt(command.split(";")[1]), new SerializableText(command.split(";")[2], peer.Ipv4Local));
             } else if (command.startsWith("/sendToRandomNode;")) {
                 peer.sendToRandomNode(Integer.parseInt(command.split(";")[1]), Integer.parseInt(command.split(";")[2]), new SerializableText(command.split(";")[3], peer.Ipv4Local));
+            } else if (command.startsWith("/startpolling")) {
+                peer.startPolling();
             } else if (command.startsWith("/")) {
                 System.out.println("'" + command + "' is not recognized as a valid command.");
             }
@@ -44,6 +46,7 @@ public class Main {
         peer.startPeer(new File("peer-config.config"));
 
         handleCommandInput(peer);
+
         // TODO Add sendToNthAdjNode        (1) : DONE : WORKS
         // TODO Add sendToRandomNode        (2) : DONE : WORKS
         // TODO Add startPolling            (3) : TO BE DONE : SHOULD BE EASY
