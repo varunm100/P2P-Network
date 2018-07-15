@@ -4,7 +4,7 @@
  */
 
 import java.io.Serializable;
-import java.time.LocalTime;
+import java.time.Instant;
 import java.util.LinkedList;
 
 class TraversalObj implements Serializable {
@@ -14,7 +14,7 @@ class TraversalObj implements Serializable {
     String globalSource;
     String callbackSubject;
     String type;
-    LocalTime timeStamp;
+    Instant timeStamp;
     Object data;
 
     /**

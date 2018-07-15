@@ -39,7 +39,7 @@ class Server {
      */
     private Socket findSuitableClient(LinkedList<String> whiteListIP) {
         Socket tempSocket = null;
-        while (Peer.Shared.running) {
+        while (Peer.Shared.isRunning) {
             try {
                 tempSocket = serverSocket.accept();
                 if (whiteListIP.contains(formatIP(tempSocket))) {
@@ -63,7 +63,7 @@ class Server {
      * @param inStream ObjectInputStream
      */
     private void startStreamListener(ObjectInputStream inStream) {
-        while (Peer.Shared.running) {
+        while (Peer.Shared.isRunning) {
             try {
                 Object o = inStream.readObject();
                 Peer.Shared.threadManager.submit(() -> handleReceivedData.accept(o));

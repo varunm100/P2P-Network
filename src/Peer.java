@@ -7,15 +7,14 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.Socket;
-import java.time.Clock;
-import java.time.LocalTime;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 class Peer {
     private Server server;
-    String Ipv4Local = null;
+    private String Ipv4Local = null;
     private Map<String, Connection> connections = new HashMap<>();
 
     /**
@@ -26,7 +25,7 @@ class Peer {
         static AtomicReference<Map<String, LinkedList<Object>>> callBackData = new AtomicReference<>(new HashMap<>());
         static ExecutorService threadManager = Executors.newCachedThreadPool();
         static volatile int numMessagesCount = 0;
-        static volatile boolean running;
+        static volatile boolean isRunning;
     }
     /**
      * Peer class.
@@ -41,7 +40,7 @@ class Peer {
      * @return Ip address of current device.
      */
     private String getLocalIpv4() {
-        if (Ipv4Local != null) return Ipv4Local;
+        if (this.Ipv4Local != null) return this.Ipv4Local;
         String output = null;
         try {
             Socket socket = new Socket("192.168.1.1", 80); //could also use port 433
@@ -58,7 +57,7 @@ class Peer {
      * Parses the config file.
      *
      * @param file Peer config file.
-     * @return Metadata to identify and start the Peer.
+     * @return Metadata to identify and start the peer.
      */
     private PeerData parseConfigFile(File file) {
         Map<String, Integer> adjPeers = new HashMap<>();
@@ -84,13 +83,26 @@ class Peer {
     }
 
     /**
+     * Stops the peer.
+     */
+    private void stop() {
+        Shared.isRunning = false;
+        waitForAllThreads();
+        server.closeServer();
+        connections.values().forEach(Connection::disconnect);
+
+        this.connections.clear();
+        this.server = null;
+    }
+
+    /**
      * Starts the peer.
      *
      * @param configFile Peer config file.
      */
     void startPeer(File configFile) {
-        Peer.Shared.running = true;
-        Ipv4Local = getLocalIpv4();
+        Shared.isRunning = true;
+        this.Ipv4Local = getLocalIpv4();
 
         PeerData peerData = parseConfigFile(configFile);
         Map<String, Integer> adjPeerInfo = new HashMap<>(peerData.adjPeers);
@@ -118,19 +130,6 @@ class Peer {
     }
 
     /**
-     * Stops the peer.
-     */
-    void stop() {
-        Peer.Shared.running = false;
-        waitForAllThreads();
-        server.closeServer();
-        connections.values().forEach(Connection::disconnect);
-
-        this.connections.clear();
-        this.server = null;
-    }
-
-    /**
      * Waits for all threads to complete.
      */
     private void waitForAllThreads() {
@@ -151,7 +150,7 @@ class Peer {
      * @param o    Object to be sent.
      * @param Ipv4 Ip address of destination peer.
      */
-    void sendObject(Object o, String Ipv4) {
+    private void sendObject(Object o, String Ipv4) {
         connections.get(Ipv4).sendObject(o);
     }
 
@@ -160,7 +159,7 @@ class Peer {
      *
      * @param o Object to be sent.
      */
-    void sendToAdjPeers(Object o) {
+    private void sendToAdjPeers(Object o) {
         connections.values().forEach(connection -> connection.sendObject(o));
     }
 
@@ -169,14 +168,14 @@ class Peer {
      *
      * @param o Object to be sent.
      */
-    void sendToAllPeers(Object o) {
+    private void sendToAllPeers(Object o) {
         TraversalObj traversalObj = new TraversalObj();
         traversalObj.data = o;
         traversalObj.visited = new LinkedList<>();
-        traversalObj.globalSource = Ipv4Local;
+        traversalObj.globalSource = this.Ipv4Local;
         traversalObj.type = "FORWARD";
-        traversalObj.callbackSubject = Ipv4Local;
-        traversalObj.timeStamp = LocalTime.now(Clock.systemUTC());
+        traversalObj.callbackSubject = this.Ipv4Local;
+        traversalObj.timeStamp = Instant.now();
         handleObjData(traversalObj);
     }
 
@@ -217,7 +216,9 @@ class Peer {
      * @param o Object received.
      */
     private void handleObjData(Object o) {
-        if (o instanceof SerializableText) {
+        if (o instanceof String) {
+            parseStringCommand((String) o);
+        } else if (o instanceof SerializableText) {
             handleTextData((SerializableText) o);
         } else if (o instanceof TraversalObj) {
             recursiveTraversal((TraversalObj) o);
@@ -231,6 +232,7 @@ class Peer {
     private void printPollingResults(PollingData o) {
         System.out.println("-----| POLLING RESULTS |-----");
         o.pollingResults.forEach((ip, result) -> System.out.println(ip + ":" + result));
+
     }
 
     /**
@@ -246,7 +248,7 @@ class Peer {
         traversalObj.visited.add(Ipv4Local);
         String timeStamp = traversalObj.timeStamp.toString();
 
-        initCounterAtomically(Peer.Shared.callBackCounter, timeStamp);
+        initCounterAtomically(Shared.callBackCounter, timeStamp);
 
         TraversalObj sendingData = new TraversalObj();
         sendingData.equals(traversalObj);
@@ -258,12 +260,13 @@ class Peer {
             if (dataRec.count >= dataRec.maxCount) {
                 traversalObj.type = "CALLBACK";
                 sendObject(traversalObj, traversalObj.callbackSubject);
-                Shared.numMessagesCount = 0;
                 handleObjData(((NCount) traversalObj.data).object);
+                Shared.numMessagesCount = 0;
                 return;
             }
         } else if (isPollingObject) {
-            ((PollingData) traversalObj.data).addEntry(Ipv4Local, validateBlock());
+            PollingData pollReference = (PollingData) traversalObj.data;
+            pollReference.addEntry(this.Ipv4Local, validateBlock(pollReference.blockData));
         }
 
         connections.values().stream()
@@ -280,7 +283,7 @@ class Peer {
             PollingData reference = (PollingData) traversalObj.data;
             rec.forEach(data -> reference.merge((PollingData) data));
         }
-        if (traversalObj.globalSource.equals(Ipv4Local)) {
+        if (traversalObj.globalSource.equals(this.Ipv4Local)) {
             System.out.println("CONFIRMATION: DATA REACHED ALL NODES, sent " + Shared.numMessagesCount + " messages.");
             Shared.numMessagesCount = 0;
             if (isPollingObject) handleObjData(traversalObj.data);
@@ -292,11 +295,17 @@ class Peer {
         Shared.numMessagesCount = 0;
     }
 
-    void startPolling() {
-        sendToAllPeers(new PollingData());
+    private void startPolling(Object blockData) {
+        sendToAllPeers(new PollingData(blockData));
     }
 
-    private boolean validateBlock() {
+    /**
+     * Supposed to 'verify' the block.
+     * @param blockData Block data.
+     * @return Returns validity of block.
+     */
+    private boolean validateBlock(Object blockData) {
+        /* TODO */
         return new Random().nextBoolean();
     }
 
@@ -306,12 +315,12 @@ class Peer {
      * @param timeStamp The time at which the parent node started search. (Used to keep track of which messages was already received)
      */
     private void waitForCallbacks(String timeStamp) {
-        System.out.println("Expected Callbacks: " + Peer.Shared.callBackCounter.get().get(timeStamp).get(0));
+        System.out.println("Expected Callbacks: " + Shared.callBackCounter.get().get(timeStamp).get(0));
         Map<String, ArrayList<Integer>> tempCount;
         do {
-            tempCount = Peer.Shared.callBackCounter.get();
+            tempCount = Shared.callBackCounter.get();
         } while (tempCount.get(timeStamp).get(1) < tempCount.get(timeStamp).get(0));
-        System.out.println("GOT ALL CALLBACKS! " + Peer.Shared.callBackCounter.get().get(timeStamp).get(1));
+        System.out.println("GOT ALL CALLBACKS! " + Shared.callBackCounter.get().get(timeStamp).get(1));
     }
 
     /**
@@ -328,7 +337,7 @@ class Peer {
                 Shared.numMessagesCount++;
                 return true;
             }
-            data.visited.add(Ipv4Local);
+            data.visited.add(this.Ipv4Local);
             data.type = "CALLBACKINVALID";
             sendObject(data, data.callbackSubject);
             Shared.numMessagesCount++;
@@ -367,9 +376,38 @@ class Peer {
      * @param n n is the search depth.
      * @param o o is the data to be sent.
      */
-    void sendToNAdjNode(int n, Object o) {
+    private void sendToNAdjNode(int n, Object o) {
         sendToAllPeers(new NCount(-1, n, o));
     }
 
-    void sendToRandomNode(int min, int max, Object o) { sendToNAdjNode(new Random().nextInt(max-min+1)+min, o); }
+    /**
+     * Sends data to a random node.
+     * @param min min value.
+     * @param max max value.
+     * @param o Data to be sent.
+     */
+    private void sendToRandomNode(int min, int max, Object o) {
+        sendToNAdjNode(new Random().nextInt(max-min+1)+min, o);
+    }
+
+    void parseStringCommand(final String command) {
+        if (command.equals("/exit")) {
+            this.stop();
+            Main.scanner.close(); // SHOULD BE REMOVED (ONLY FOR TESTING)
+        } else if (command.startsWith("/sendto;")) {
+            this.sendObject(new SerializableText(command.split(";")[2], this.Ipv4Local), command.split(";")[1]);
+        } else if (command.startsWith("/sendtoall;")) {
+            this.sendToAllPeers(new SerializableText(command.split(";")[1], this.Ipv4Local));
+        } else if (command.startsWith("/sendtoadj;")) {
+            this.sendToAdjPeers(new SerializableText(command.split(";")[1], this.Ipv4Local));
+        } else if (command.startsWith("/sendtoallnth;")) {
+            this.sendToNAdjNode(Integer.parseInt(command.split(";")[1]), new SerializableText(command.split(";")[2], this.Ipv4Local));
+        } else if (command.startsWith("/sendtoRandomPeer;")) {
+            this.sendToRandomNode(Integer.parseInt(command.split(";")[1]), Integer.parseInt(command.split(";")[2]), new SerializableText(command.split(";")[3], this.Ipv4Local));
+        } else if (command.startsWith("/startpolling")) {
+            this.startPolling("BLOCKDATA");
+        } else if (command.startsWith("/")) {
+            System.out.println("'" + command + "' is not recognized as a valid command.");
+        }
+    }
 }
