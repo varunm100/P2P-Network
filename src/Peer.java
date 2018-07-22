@@ -101,8 +101,6 @@ class Peer {
      * @param configFile Peer config file.
      */
     void startPeer(File configFile) {
-        Main.scanner = new Scanner(System.in); // Only for debugging.
-
         Shared.isRunning = true;
         this.Ipv4Local = getLocalIpv4();
 

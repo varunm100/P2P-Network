@@ -10,6 +10,7 @@ public class Main {
     static Scanner scanner;
     public static void main(String args[]) {
         Main.scanner = new Scanner(System.in);
+
         Peer peer = new Peer();
         peer.startPeer(new File("peer-config.config"));
 
