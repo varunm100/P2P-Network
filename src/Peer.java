@@ -24,7 +24,7 @@ class Peer {
         static AtomicReference<Map<String, ArrayList<Integer>>> callBackCounter = new AtomicReference<>(new HashMap<>());
         static AtomicReference<Map<String, LinkedList<Object>>> callBackData = new AtomicReference<>(new HashMap<>());
         static ExecutorService threadManager = Executors.newCachedThreadPool();
-        static volatile int numMessagesCount = 0;
+        static volatile int numMessagesCount = 0; // Only for testing (Volatile should be changed to AtomicReference)
         static volatile boolean isRunning;
     }
     /**
@@ -47,7 +47,7 @@ class Peer {
             output = socket.getLocalAddress().getHostAddress();
             socket.close();
         } catch (IOException e) {
-            System.out.println("Could not detect ip of device.");
+            System.out.println("Could not detect ip address of device.");
             e.printStackTrace();
         }
         return output;
@@ -101,6 +101,8 @@ class Peer {
      * @param configFile Peer config file.
      */
     void startPeer(File configFile) {
+        Main.scanner = new Scanner(System.in); // Only for debugging.
+
         Shared.isRunning = true;
         this.Ipv4Local = getLocalIpv4();
 
@@ -232,7 +234,6 @@ class Peer {
     private void printPollingResults(PollingData o) {
         System.out.println("-----| POLLING RESULTS |-----");
         o.pollingResults.forEach((ip, result) -> System.out.println(ip + ":" + result));
-
     }
 
     /**
@@ -255,12 +256,13 @@ class Peer {
         sendingData.callbackSubject = Ipv4Local;
         /* UPDATE RECEIVED DATA */
         if (isCountObject) {
-            sendingData.data = new NCount(((NCount) traversalObj.data).count + 1, ((NCount) traversalObj.data).maxCount, ((NCount) traversalObj.data).object);
+            NCount reference = (NCount) traversalObj.data;
+            sendingData.data = new NCount(reference.count + 1, reference.maxCount, reference.object);
             NCount dataRec = (NCount) sendingData.data;
             if (dataRec.count >= dataRec.maxCount) {
                 traversalObj.type = "CALLBACK";
                 sendObject(traversalObj, traversalObj.callbackSubject);
-                handleObjData(((NCount) traversalObj.data).object);
+                handleObjData(reference.object);
                 Shared.numMessagesCount = 0;
                 return;
             }
@@ -393,19 +395,19 @@ class Peer {
     void parseStringCommand(final String command) {
         if (command.equals("/exit")) {
             this.stop();
-            Main.scanner.close(); // SHOULD BE REMOVED (ONLY FOR TESTING)
-        } else if (command.startsWith("/sendto;")) {
+            Main.scanner.close(); // Only for debugging.
+        } else if (command.startsWith("/send_to;")) {
             this.sendObject(new SerializableText(command.split(";")[2], this.Ipv4Local), command.split(";")[1]);
-        } else if (command.startsWith("/sendtoall;")) {
+        } else if (command.startsWith("/send_to_all;")) {
             this.sendToAllPeers(new SerializableText(command.split(";")[1], this.Ipv4Local));
-        } else if (command.startsWith("/sendtoadj;")) {
+        } else if (command.startsWith("/send_to_adj;")) {
             this.sendToAdjPeers(new SerializableText(command.split(";")[1], this.Ipv4Local));
-        } else if (command.startsWith("/sendtoallnth;")) {
+        } else if (command.startsWith("/send_to_all_nth;")) {
             this.sendToNAdjNode(Integer.parseInt(command.split(";")[1]), new SerializableText(command.split(";")[2], this.Ipv4Local));
-        } else if (command.startsWith("/sendtoRandomPeer;")) {
+        } else if (command.startsWith("/send_to_random_peer;")) {
             this.sendToRandomNode(Integer.parseInt(command.split(";")[1]), Integer.parseInt(command.split(";")[2]), new SerializableText(command.split(";")[3], this.Ipv4Local));
-        } else if (command.startsWith("/startpolling")) {
-            this.startPolling("BLOCKDATA");
+        } else if (command.startsWith("/start_polling")) {
+            this.startPolling("BLOCK_DATA");
         } else if (command.startsWith("/")) {
             System.out.println("'" + command + "' is not recognized as a valid command.");
         }
